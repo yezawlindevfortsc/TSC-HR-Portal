@@ -1,0 +1,219 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HR Portal — Coverage &amp; Gap Analysis</title>
+<style>
+  :root{
+    --ink:#14202e;--ink-2:#243446;--slate:#4a5a6c;--slate-2:#6b7a8a;--slate-3:#8a97a5;
+    --line:#d8dee6;--line-2:#e8edf2;--paper:#f4f6f9;--paper-2:#fbfcfd;--white:#fff;
+    --steel:#2f5d8a;--steel-soft:#e4edf5;
+    --built:#1f7a52;--built-bg:#e3f3eb;--part:#b5740a;--part-bg:#fbeed5;--miss:#8a3d52;--miss-bg:#f6e4e9;
+    --r-mgr:#17375e;--r-pay:#1f497d;--r-fw:#7030a0;--r-staff:#c55a11;--r-asst:#404040;
+    --mono:ui-monospace,"Cascadia Code","Consolas","SF Mono",Menlo,monospace;
+    --sans:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1060px;margin:0 auto;padding:0 24px 96px;}
+  header.mast{background:var(--ink);color:#eef3f8;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:26px 26px;border-bottom:3px solid var(--steel);}
+  .mast-inner{max-width:1060px;margin:0 auto;padding:40px 24px 34px;}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#8fb4d6;margin:0 0 14px;}
+  h1.title{font-size:clamp(28px,4.4vw,42px);line-height:1.08;margin:0 0 16px;font-weight:700;letter-spacing:-.01em;color:var(--white);}
+  .lede{max-width:68ch;color:#c4d3e1;font-size:17px;margin:0;}
+  section{margin-top:50px;}
+  .sec-head{border-bottom:2px solid var(--ink);padding-bottom:10px;margin-bottom:16px;}
+  .sec-num{font-family:var(--mono);font-size:13px;color:var(--steel);letter-spacing:.12em;font-weight:600;}
+  h2{font-size:clamp(21px,3vw,28px);margin:4px 0 0;letter-spacing:-.01em;}
+  .sec-sub{color:var(--slate);margin:10px 0 0;max-width:74ch;}
+  p{margin:0 0 12px;}
+
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-top:8px;}
+  .tile{background:var(--white);border:1px solid var(--line);border-radius:10px;padding:18px 20px;border-top:4px solid var(--slate-3);}
+  .tile.b{border-top-color:var(--built);} .tile.p{border-top-color:var(--part);} .tile.m{border-top-color:var(--miss);} .tile.s{border-top-color:var(--steel);}
+  .tile .n{font-size:34px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums;}
+  .tile.b .n{color:var(--built);} .tile.p .n{color:var(--part);} .tile.m .n{color:var(--miss);} .tile.s .n{color:var(--steel);}
+  .tile .l{font-size:13px;color:var(--slate);margin-top:2px;}
+
+  .chip{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding:3px 8px;border-radius:5px;white-space:nowrap;border:1px solid transparent;}
+  .chip.b{color:var(--built);background:var(--built-bg);border-color:#b9dfc9;}
+  .chip.p{color:var(--part);background:var(--part-bg);border-color:#ecd6a3;}
+  .chip.m{color:var(--miss);background:var(--miss-bg);border-color:#e6c2cd;}
+
+  .callout{background:var(--steel-soft);border:1px solid #bcd3e6;border-radius:9px;padding:16px 18px;margin-top:18px;font-size:14.5px;}
+  .callout b{color:var(--ink);}
+
+  .mods{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;margin-top:8px;}
+  .mod{background:var(--white);border:1px solid var(--line);border-radius:9px;padding:14px 16px;border-left:4px solid var(--steel);}
+  .mod h4{margin:0 0 5px;font-size:15px;}
+  .mod p{margin:0;font-size:13px;color:var(--slate);}
+
+  .role{background:var(--white);border:1px solid var(--line);border-radius:10px;margin-top:18px;overflow:hidden;}
+  .role-head{padding:14px 20px;border-left:6px solid var(--slate);display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;}
+  .role.mgr .role-head{border-left-color:var(--r-mgr);} .role.pay .role-head{border-left-color:var(--r-pay);}
+  .role.fw .role-head{border-left-color:var(--r-fw);} .role.staff .role-head{border-left-color:var(--r-staff);} .role.asst .role-head{border-left-color:var(--r-asst);}
+  .role-head h3{margin:0;font-size:18px;} .role-head .sc{font-size:13px;color:var(--slate-2);}
+  table.cov{width:100%;border-collapse:collapse;font-size:13.5px;}
+  table.cov th{background:var(--paper-2);text-align:left;padding:8px 14px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--slate-2);font-family:var(--mono);border-top:1px solid var(--line-2);}
+  table.cov td{padding:9px 14px;border-top:1px solid var(--line-2);vertical-align:top;}
+  table.cov td.st{white-space:nowrap;}
+  table.cov td .nt{font-size:12.5px;color:var(--slate);}
+  table.cov td b{color:var(--ink-2);}
+  .tblscroll{overflow-x:auto;}
+
+  .tier{margin-top:22px;}
+  .tier-h{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+  .tier-h .tn{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--white);background:var(--steel);padding:3px 9px;border-radius:5px;}
+  .tier-h .td{font-size:13px;color:var(--slate-2);}
+  .bigmod{background:var(--white);border:1px solid var(--line);border-radius:9px;padding:15px 18px;margin-top:10px;border-left:4px solid var(--steel);}
+  .bigmod .top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:5px;}
+  .bigmod h4{margin:0;font-size:16px;}
+  .bigmod .roles{font-family:var(--mono);font-size:10.5px;color:var(--slate-2);}
+  .bigmod p{margin:0;font-size:13.5px;color:var(--slate);}
+  ul.clean{margin:8px 0 0;padding-left:20px;} ul.clean li{margin:5px 0;font-size:14px;}
+  footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--line);font-size:12.5px;color:var(--slate-2);}
+</style>
+
+<header class="mast">
+  <div class="mast-inner">
+    <p class="eyebrow">HR Portal · Coverage &amp; Gap Analysis</p>
+    <h1 class="title">What the portal covers — and what's still missing</h1>
+    <p class="lede">The prototype against the full task inventory from <b>HR JOBS.docx</b> (5 operating roles, ~30 task groups). Each area is marked Built, Partial, or Not started — followed by the modules still to add.</p>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section id="glance">
+    <div class="sec-head"><span class="sec-num">00 / AT A GLANCE</span><h2>Where we stand</h2></div>
+    <div class="tiles">
+      <div class="tile s"><div class="n">6</div><div class="l">modules live in the prototype</div></div>
+      <div class="tile b"><div class="n">~6</div><div class="l">task groups well covered</div></div>
+      <div class="tile p"><div class="n">~9</div><div class="l">partially covered (visibility, not full workflow)</div></div>
+      <div class="tile m"><div class="n">~15</div><div class="l">task groups not yet started</div></div>
+    </div>
+    <div class="callout"><b>This is mostly by design, not oversight.</b> The prototype deliberately built the low-risk <b>Phase&nbsp;1</b> set — read-only dashboards, the compliance monitor, AI document drafting and the knowledge assistant — plus <b>Recruitment</b>, which we pulled forward at your request. The big missing pieces (payroll, worker/staff lifecycle, claims) are the <b>Phase&nbsp;2 / Phase&nbsp;3</b> operational systems from the requirements spec, several of which touch money and so were intentionally left for later, carefully.</div>
+  </section>
+
+  <section id="current">
+    <div class="sec-head"><span class="sec-num">01 / BUILT</span><h2>Modules live today</h2></div>
+    <div class="mods">
+      <div class="mod"><h4>Access &amp; RBAC</h4><p>HR-only login, six role scopes, role-shaped navigation &amp; dashboards.</p></div>
+      <div class="mod"><h4>Compliance Monitor</h4><p>DRC &amp; quota, IPA, permit/passport expiry, OT (Part IV), FCF window, licence &amp; PDPA retention.</p></div>
+      <div class="mod"><h4>Recruitment</h4><p>CV upload + AI parsing, fit-score ranking, hirer routing &amp; emails, offer → employment letter.</p></div>
+      <div class="mod"><h4>Document Generator</h4><p>Built-in + uploaded templates, AI-PII sandbox, letterhead Word/PDF output, history.</p></div>
+      <div class="mod"><h4>Knowledge Assistant</h4><p>Cited Q&amp;A over EA / EFMA / MOM / SOPs.</p></div>
+      <div class="mod"><h4>Approvals</h4><p>Maker-checker &amp; DOA queue (prototype).</p></div>
+    </div>
+  </section>
+
+  <section id="coverage">
+    <div class="sec-head"><span class="sec-num">02 / COVERAGE BY ROLE</span><h2>Task-by-task status</h2></div>
+    <p class="sec-sub">Status per task group from the blueprint. <span class="chip b">Built</span> = working in the prototype · <span class="chip p">Partial</span> = visible but no full workflow · <span class="chip m">Missing</span> = no module yet.</p>
+
+    <!-- HR MANAGER -->
+    <div class="role mgr"><div class="role-head"><h3>HR Manager</h3><span class="sc">Governance, Risk &amp; Strategy</span></div>
+      <div class="tblscroll"><table class="cov"><tr><th>Task group</th><th>Status</th><th>Fills via</th></tr>
+        <tr><td><b>1 · Strategic partnering &amp; workforce optimization</b><div class="nt">grants, tender HR input, manpower cross-check</div></td><td class="st"><span class="chip m">Missing</span></td><td class="nt">Grants &amp; Training · Licence/Tender Docs</td></tr>
+        <tr><td><b>2 · Regulatory &amp; policy governance</b><div class="nt">compliance monitoring ✓; policy, discipline, grievance, MOM inspections ✗</div></td><td class="st"><span class="chip p">Partial</span></td><td class="nt">Case Management · Policy &amp; Comms</td></tr>
+        <tr><td><b>3 · Compensation, reviews &amp; benefits</b><div class="nt">review cycle, benchmarking, appeals, insurance renewal</div></td><td class="st"><span class="chip m">Missing</span></td><td class="nt">Compensation &amp; Benefits</td></tr>
+        <tr><td><b>4 · BCA &amp; corporate licence governance</b><div class="nt">monitoring ✓ &amp; HR Assurance Summary ✓; doc packages ✗</div></td><td class="st"><span class="chip p">Partial</span></td><td class="nt">Licence/Tender Docs · Reporting</td></tr>
+        <tr><td><b>5 · EHS coordination &amp; risk</b><div class="nt">settlement review, work-injury reporting governance</div></td><td class="st"><span class="chip m">Missing</span></td><td class="nt">Claims &amp; Work Injury</td></tr>
+        <tr><td><b>6 · Systems, data &amp; PDPA governance</b><div class="nt">retention view ✓, memos draftable ✓; access admin, AI-tool register, OT config ✗</div></td><td class="st"><span class="chip p">Partial</span></td><td class="nt">Data Governance &amp; Admin Console</td></tr>
+        <tr><td><b>7 · Leadership, mentorship &amp; reporting</b><div class="nt">approvals/DOA ✓; assign priorities, cross-training matrix ✗ (mentorship is human)</div></td><td class="st"><span class="chip p">Partial</span></td><td class="nt">Admin Console (cross-training matrix)</td></tr>
+      </table></div>
+    </div>
+
+    <!-- PAYROLL -->
+    <div class="role pay"><div class="role-head"><h3>Executive — Payroll</h3><span class="sc">Payroll, Leave, OT &amp; Cost Control</span></div>
+      <div class="tblscroll"><table class="cov"><tr><th>Task group</th><th>Status</th><th>Fills via</th></tr>
+        <tr><td><b>1 · Payroll &amp; statutory admin</b><div class="nt">payroll, CPF/IR21/IR8A, reconciliation, encashment, bond-break</div></td><td class="st"><span class="chip m">Missing</span></td><td class="nt">Payroll &amp; Cost Control</td></tr>
+        <tr><td><b>2 · Levy &amp; waiver admin</b><div class="nt">levy billing, waivers, R1/R2 diff</div></td><td class="st"><span class="chip m">Missing</span></td><td class="nt">Levy &amp; Waiver</td></tr>
+        <tr><td><b>3 · Overtime admin</b><div class="nt">Part IV monitoring, exception reports, EHS feed</div></td><td class="st"><span class="chip b">Built</span></td><td class="nt">— (Compliance Monitor)</td></tr>
+        <tr><td><b>4 · Leave &amp; workforce cost reporting</b><div class="nt">cost reports, payroll holds, wage-subsidy reconciliation</div></td><td class="st"><span class="chip m">Missing</span></td><td class="nt">Payroll &amp; Cost Control · Reporting</td></tr>
+        <tr><td><b>5 · Insurance policy admin</b><div class="nt">policy records, AME data, premium benchmarking</div></td><td class="st"><span class="chip m">Missing</span></td><td class="nt">Compensation &amp; Benefits · Claims</td></tr>
+        <tr><td><b>6 · Cross-training duty</b></td><td class="st"><span class="chip m">Missing</span></td><td class="nt">Admin Console (matrix)</td></tr>
+      </table></div>
+    </div>
+
+    <!-- FW -->
+    <div class="role fw"><div class="role-head"><h3>Executive — Foreign Workers</h3><span class="sc">Foreign Workers, Dormitory &amp; Worker Lifecycle</span></div>
+      <div class="tblscroll"><table class="cov"><tr><th>Task group</th><th>Status</th><th>Fills via</th></tr>
+        <tr><td><b>1 · Permits &amp; hiring verification</b><div class="nt">DRC/IPA/expiry visible ✓; permit issue/renew/cancel, hiring, repatriation workflow ✗</div></td><td class="st"><span class="chip p">Partial</span></td><td class="nt">FW Lifecycle &amp; Dormitory</td></tr>
+        <tr><td><b>2 · Levy-waiver trigger identification</b></td><td class="st"><span class="chip m">Missing</span></td><td class="nt">Levy &amp; Waiver</td></tr>
+        <tr><td><b>3 · Dormitory &amp; movement admin</b><div class="nt">bed forecast, OFWAS/PCP, allocations</div></td><td class="st"><span class="chip m">Missing</span></td><td class="nt">FW Lifecycle &amp; Dormitory</td></tr>
+        <tr><td><b>4 · Worker lifecycle &amp; records</b><div class="nt">status/AWOL visible ✓; worker DB, home-leave mgmt, holds, medical scheduling, fact-finding ✗</div></td><td class="st"><span class="chip p">Partial</span></td><td class="nt">FW Lifecycle · Case Management</td></tr>
+        <tr><td><b>5 · Training, performance &amp; grants</b><div class="nt">increment/bonus letters draftable ✓; upgrading, claims, MC-abuse, grants ✗</div></td><td class="st"><span class="chip p">Partial</span></td><td class="nt">Performance · Claims · Grants &amp; Training</td></tr>
+        <tr><td><b>6 · Cross-training duty</b></td><td class="st"><span class="chip m">Missing</span></td><td class="nt">Admin Console (matrix)</td></tr>
+      </table></div>
+    </div>
+
+    <!-- STAFF -->
+    <div class="role staff"><div class="role-head"><h3>Executive — Staff</h3><span class="sc">Recruitment, Staff Operations &amp; Workforce Planning</span></div>
+      <div class="tblscroll"><table class="cov"><tr><th>Task group</th><th>Status</th><th>Fills via</th></tr>
+        <tr><td><b>1 · Recruitment operations</b><div class="nt">intake, screening, routing, interviews, offers ✓; JD drafting, agency cost tracking partial</div></td><td class="st"><span class="chip b">Built</span></td><td class="nt">— (Recruitment)</td></tr>
+        <tr><td><b>2 · Staff HR operations</b><div class="nt">onboarding/confirmation/exit, status, bond register, fact-finding</div></td><td class="st"><span class="chip p">Partial</span></td><td class="nt">Staff Lifecycle · Case Management</td></tr>
+        <tr><td><b>3 · Org structure &amp; comms</b><div class="nt">announcements draftable ✓; org chart, directory ✗</div></td><td class="st"><span class="chip p">Partial</span></td><td class="nt">Staff Lifecycle · Policy &amp; Comms</td></tr>
+        <tr><td><b>4 · Staff insurance &amp; claims</b></td><td class="st"><span class="chip m">Missing</span></td><td class="nt">Claims &amp; Work Injury</td></tr>
+        <tr><td><b>5 · Performance, grants &amp; retention</b><div class="nt">increment/bonus letters draftable ✓; review cycles, attrition, exit interviews, grants ✗</div></td><td class="st"><span class="chip p">Partial</span></td><td class="nt">Performance · Grants &amp; Training</td></tr>
+        <tr><td><b>6 · Workforce planning</b><div class="nt">staffing gaps, key-person risk</div></td><td class="st"><span class="chip m">Missing</span></td><td class="nt">Reporting &amp; Analytics</td></tr>
+        <tr><td><b>7 · Cross-training duty</b></td><td class="st"><span class="chip m">Missing</span></td><td class="nt">Admin Console (matrix)</td></tr>
+      </table></div>
+    </div>
+
+    <!-- ASSISTANT -->
+    <div class="role asst"><div class="role-head"><h3>HR Assistant</h3><span class="sc">Overall Support &amp; Administration</span></div>
+      <div class="tblscroll"><table class="cov"><tr><th>Task group</th><th>Status</th><th>Fills via</th></tr>
+        <tr><td><b>1 · Payroll support</b><div class="nt">OT follow-up flagged on dashboard ✓; chase workflow ✗</div></td><td class="st"><span class="chip p">Partial</span></td><td class="nt">Admin Workspace · Payroll</td></tr>
+        <tr><td><b>2 · FW &amp; dormitory support</b><div class="nt">tickets, dorm check-ins, scanning/OCR, assets, IPA admin</div></td><td class="st"><span class="chip m">Missing</span></td><td class="nt">Admin &amp; Onboarding Logistics</td></tr>
+        <tr><td><b>3 · Staff operations support</b><div class="nt">onboarding kits, HRIQ account creation, asset coordination, BCA collation</div></td><td class="st"><span class="chip p">Partial</span></td><td class="nt">Admin Workspace · Staff Lifecycle</td></tr>
+        <tr><td><b>4 · General administration</b><div class="nt">master trackers shown ✓; inquiry routing, walk-in screening partial</div></td><td class="st"><span class="chip p">Partial</span></td><td class="nt">Admin &amp; Onboarding Logistics</td></tr>
+      </table></div>
+    </div>
+  </section>
+
+  <section id="add">
+    <div class="sec-head"><span class="sec-num">03 / WHAT TO ADD</span><h2>Modules still to build</h2></div>
+    <p class="sec-sub">Fifteen modules close the gaps, grouped by priority. Tier 1 is the core operational backbone with the widest task coverage; tiers 2–3 add cycles, enabling functions and governance.</p>
+
+    <div class="tier">
+      <div class="tier-h"><span class="tn">Tier 1 · core operations</span><span class="td">highest task coverage · Phase 2</span></div>
+      <div class="bigmod"><div class="top"><h4>1 · Payroll &amp; Cost Control</h4><span class="roles">Payroll · Manager</span></div><p>Monthly payroll, CPF / IR21 / IR8A, reconciliation under maker-checker, leave encashment, bond-break, manpower cost reports by cost centre, wage-subsidy reconciliation. <b>Deterministic calculation engine — the money-critical core; built &amp; parallel-run before going live.</b></p></div>
+      <div class="bigmod"><div class="top"><h4>2 · Foreign Worker Lifecycle &amp; Dormitory</h4><span class="roles">FW · Assistant</span></div><p>Worker database, work-permit issue/renew/cancel workflow, passport &amp; medical-exam scheduling, status/AWOL tracking, home-leave management &amp; holds, dormitory bed forecast &amp; allocation, OFWAS/PCP, repatriation, MOM upgrading (CSOC/CoreTrade, R2→R1).</p></div>
+      <div class="bigmod"><div class="top"><h4>3 · Staff Lifecycle</h4><span class="roles">Staff · Assistant</span></div><p>Onboarding / confirmation / exit workflows, staff directory, org-chart maintenance &amp; publication, training-bond register, attrition tracking &amp; exit interviews.</p></div>
+      <div class="bigmod"><div class="top"><h4>4 · Case Management — Grievance &amp; Discipline</h4><span class="roles">Manager · FW · Staff</span></div><p>Disciplinary workflow (incident → fact-finding → warning → suspension → termination review), grievance escalation chain, MC-abuse monitoring — with full audit trail and DOA routing.</p></div>
+      <div class="bigmod"><div class="top"><h4>5 · Claims &amp; Work Injury</h4><span class="roles">FW · Staff · Payroll · Manager</span></div><p>WICA / FWMI / Group Medical claim cases, MOM injury notifications (10-day timelines), AME data, settlement packages, DOA routing. Cross-functional.</p></div>
+      <div class="bigmod"><div class="top"><h4>6 · Levy &amp; Waiver</h4><span class="roles">FW · Payroll</span></div><p>Waiver trigger identification (FW) → application (Payroll) → reconciliation vs MOM billing; levy billing &amp; R1/R2 cost differences.</p></div>
+      <div class="bigmod"><div class="top"><h4>7 · Reporting &amp; Analytics</h4><span class="roles">all roles</span></div><p>Consolidated manpower-cost, AWOL, attrition, OT-exception, status-breakdown and headcount-reconciliation reports (the HR Assurance Summary already lives on the dashboard).</p></div>
+    </div>
+
+    <div class="tier">
+      <div class="tier-h"><span class="tn">Tier 2 · cycles &amp; enabling</span><span class="td">Phase 2 / 3</span></div>
+      <div class="bigmod"><div class="top"><h4>8 · Performance Management</h4><span class="roles">Staff · FW · Manager</span></div><p>Quarterly staff &amp; worker review cycles, performance / attendance / EHS records, increment &amp; bonus generation tied to reviews, appeals.</p></div>
+      <div class="bigmod"><div class="top"><h4>9 · Compensation &amp; Benefits</h4><span class="roles">Manager · Payroll</span></div><p>Annual salary &amp; bonus review cycle (data → equity → consolidated proposal → envelope approval), market benchmarking, insurance renewal &amp; policy records.</p></div>
+      <div class="bigmod"><div class="top"><h4>10 · Grants &amp; Training</h4><span class="roles">Manager · FW · Staff</span></div><p>Government grants / wage subsidies / capability funding, training grants &amp; levy rebates, training coordination (CSOC/CoreTrade, upskilling), training-needs tracking.</p></div>
+      <div class="bigmod"><div class="top"><h4>11 · BCA Licence &amp; Tender Documentation</h4><span class="roles">Manager · Staff</span></div><p>Compile HR doc packages for A1 renewals &amp; tender submissions (headcount schedules, trade-cert registers), manpower sufficiency, cross-check vs Operations deployment.</p></div>
+      <div class="bigmod"><div class="top"><h4>12 · Admin &amp; Onboarding Logistics</h4><span class="roles">HR Assistant</span></div><p>The Assistant's workspace: onboarding kits, asset issuance/recovery, document scanning &amp; OCR indexing, HRIQ account creation, master trackers, repatriation logistics.</p></div>
+    </div>
+
+    <div class="tier">
+      <div class="tier-h"><span class="tn">Tier 3 · governance &amp; extras</span><span class="td">Phase 3</span></div>
+      <div class="bigmod"><div class="top"><h4>13 · Data Governance &amp; Admin Console</h4><span class="roles">Manager</span></div><p>RBAC administration, retention enforcement, breach reporting, AI-tool approval register, audit-log viewer, HRIQ sync &amp; data-freshness status, cross-training matrix.</p></div>
+      <div class="bigmod"><div class="top"><h4>14 · Policy &amp; Communications</h4><span class="roles">Manager · Staff</span></div><p>Policy lifecycle &amp; version control, memo / announcement approval &amp; distribution (drafting already exists in Documents).</p></div>
+      <div class="bigmod"><div class="top"><h4>15 · Welfare &amp; Engagement</h4><span class="roles">FW · Staff</span></div><p>Worker welfare &amp; festive programmes, staff engagement initiatives, event logistics.</p></div>
+    </div>
+  </section>
+
+  <section id="human">
+    <div class="sec-head"><span class="sec-num">04 / NOT GAPS</span><h2>Human-only tasks — supported, not automated</h2></div>
+    <p class="sec-sub">These stay human by design (judgment, legal accountability, relationships, physical acts). The modules above <em>support</em> them; they don't need a module to "do" them — so their absence isn't a gap.</p>
+    <ul class="clean">
+      <li>Fronting MOM inspections &amp; audits · final disciplinary &amp; grievance adjudication · salary/bonus appeal decisions</li>
+      <li>Interviews &amp; exit interviews · team leadership &amp; mentorship · relationship-building with agencies / partners</li>
+      <li>Physical dormitory check-ins, asset issuance/recovery, ticketing &amp; transport · cross-training coverage in person</li>
+    </ul>
+  </section>
+
+  <footer>
+    Assessed against the task inventory in <b>HR JOBS.docx</b> / the HR Portal Blueprint. Status is a planning judgement of the current prototype, not a code audit. Counts are approximate; several task groups span more than one module. Priorities align with the phasing in the Requirements Specification.
+  </footer>
+
+</div>

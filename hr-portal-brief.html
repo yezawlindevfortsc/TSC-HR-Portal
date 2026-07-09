@@ -1,0 +1,139 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HR Portal — Management Brief</title>
+<style>
+  :root{
+    --ink:#14202e;--ink-2:#243446;--slate:#4a5a6c;--slate-2:#6b7a8a;--slate-3:#8a97a5;
+    --line:#d8dee6;--line-2:#e8edf2;--paper:#f4f6f9;--paper-2:#fbfcfd;--white:#fff;
+    --steel:#2f5d8a;--steel-soft:#e4edf5;
+    --ok:#1f7a52;--ok-bg:#e5f4ec;--warn:#b5740a;--warn-bg:#fbeed5;
+    --mono:ui-monospace,"Cascadia Code","Consolas","SF Mono",Menlo,monospace;
+    --sans:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:900px;margin:0 auto;padding:0 24px 80px;}
+  header.mast{background:var(--ink);color:#eef3f8;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:26px 26px;border-bottom:3px solid var(--steel);}
+  .mast-inner{max-width:900px;margin:0 auto;padding:36px 24px 30px;}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#8fb4d6;margin:0 0 12px;}
+  h1.title{font-size:clamp(26px,4vw,38px);line-height:1.1;margin:0 0 12px;font-weight:700;letter-spacing:-.01em;color:var(--white);}
+  .lede{max-width:64ch;color:#c4d3e1;font-size:16.5px;margin:0;}
+  section{margin-top:38px;}
+  .sec-head{border-bottom:2px solid var(--ink);padding-bottom:8px;margin-bottom:14px;}
+  .sec-num{font-family:var(--mono);font-size:12px;color:var(--steel);letter-spacing:.12em;font-weight:600;}
+  h2{font-size:clamp(19px,2.6vw,24px);margin:3px 0 0;letter-spacing:-.01em;}
+  p{margin:0 0 12px;max-width:74ch;}
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-top:6px;}
+  .tile{background:var(--white);border:1px solid var(--line);border-radius:10px;padding:15px 17px;border-top:4px solid var(--steel);}
+  .tile .n{font-size:24px;font-weight:700;letter-spacing:-.01em;}
+  .tile .l{font-size:12.5px;color:var(--slate-2);margin-top:2px;}
+  .tblscroll{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--white);}
+  table.t{width:100%;border-collapse:collapse;font-size:14px;}
+  table.t th{background:var(--ink);color:#fff;text-align:left;padding:9px 13px;font-size:12.5px;font-weight:600;white-space:nowrap;}
+  table.t td{padding:9px 13px;border-top:1px solid var(--line-2);vertical-align:top;}
+  table.t tr:nth-child(even) td{background:var(--paper-2);}
+  table.t td.k{font-weight:600;white-space:nowrap;}
+  table.t td.num{font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .callout{border-radius:9px;padding:15px 18px;font-size:14.5px;margin-top:12px;background:var(--steel-soft);border:1px solid #bcd3e6;}
+  .callout.warn{background:var(--warn-bg);border-color:#ecd6a3;}
+  .callout b{color:var(--ink);}
+  ul.clean{margin:6px 0 12px;padding-left:20px;}
+  ul.clean li{margin:6px 0;max-width:74ch;}
+  ul.clean li b{color:var(--ink-2);}
+  ol.clean{margin:6px 0 12px;padding-left:22px;}
+  ol.clean li{margin:7px 0;max-width:74ch;}
+  footer{margin-top:56px;padding-top:18px;border-top:1px solid var(--line);font-size:12.5px;color:var(--slate-2);}
+  a{color:var(--steel);}
+</style>
+
+<header class="mast">
+  <div class="mast-inner">
+    <p class="eyebrow">HR Portal · Management Brief</p>
+    <h1 class="title">AI-Assisted HR Portal — the decision brief</h1>
+    <p class="lede">One page for management: what it is, what it costs, how we'll measure success, and the decision we're asking for now.</p>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section>
+    <div class="sec-head"><span class="sec-num">01 / WHAT &amp; WHY</span><h2>The proposal in four lines</h2></div>
+    <p>An internal, <b>HR-only</b> web portal where our six-person HR department does its work with AI assistance — continuous compliance monitoring (DRC, permits, quotas, FCF, PDPA retention), AI-drafted documents on our letterhead, CV screening, and eventually payroll under strict human control.</p>
+    <p>Analysis of the department's full job scopes shows <b>~75% of HR tasks can be AI-led or AI-assisted</b> — the value concentrates in compliance early-warning (avoiding MOM/BCA breaches) and removing manual data work. Humans keep every consequential decision.</p>
+    <div class="tiles">
+      <div class="tile"><div class="n">~75%</div><div class="l">of HR tasks AI-supportable</div></div>
+      <div class="tile"><div class="n">0</div><div class="l">statutory filings or payments made without a named human approval</div></div>
+      <div class="tile"><div class="n">6</div><div class="l">modules already demonstrated in a working prototype</div></div>
+      <div class="tile"><div class="n">S$0</div><div class="l">ongoing HRIQ API fees — batch sync reuses our existing Python extraction</div></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">02 / THE ASK</span><h2>Fund Phase 0 + 1 first — not the whole programme</h2></div>
+    <p>We recommend approving only the first two phases now: the technical foundation plus the six lowest-risk, highest-visibility modules (compliance monitoring, documents, knowledge assistant, recruitment, dashboards, approvals). <b>Nothing in this scope touches payroll or money.</b> The payroll phase is decided later, on evidence from Phase 1.</p>
+    <div class="tblscroll">
+    <table class="t">
+      <tr><th>Item</th><th>Effort / basis</th><th>In-house build</th><th>Vendor build</th></tr>
+      <tr><td class="k">Phase 0 + 1 (the ask)</td><td>16–24 engineer-weeks, ~4–6 months</td><td class="num">≈ S$35k–80k</td><td class="num">≈ S$80k–190k</td></tr>
+      <tr><td class="k">Full programme (later decision)</td><td>50–65 engineer-weeks, ~8–12 months</td><td class="num">≈ S$100k–210k</td><td class="num">≈ S$250k–500k</td></tr>
+      <tr><td class="k">Running costs</td><td>SG-region hosting + AI model usage + tooling</td><td class="num" colspan="2">≈ S$300–1,000 / month</td></tr>
+      <tr><td class="k">Security review (one-off)</td><td>Independent review + pen test before sensitive data</td><td class="num" colspan="2">≈ S$8k–20k</td></tr>
+    </table>
+    </div>
+    <div class="callout warn"><b>These are market-rate planning ranges, not quotes.</b> In-house assumes 1–2 full-stack engineers at prevailing SG salaries working AI-assisted; vendor rates vary widely. Validate with at least two quotes before committing. Excludes HRIQ vendor charges (avoided by design) and internal HR time.</div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">03 / MEASURING SUCCESS</span><h2>How we'll know it's working</h2></div>
+    <p>We will baseline these in the two weeks before pilot, so ROI is measured, not asserted:</p>
+    <div class="tblscroll">
+    <table class="t">
+      <tr><th>Metric</th><th>Baseline (to capture)</th><th>Target after Phase 1</th></tr>
+      <tr><td class="k">Admin hours per week, per HR role</td><td>Time-log sample</td><td class="num">−30% on tasks in scope</td></tr>
+      <tr><td class="k">Missed / near-missed statutory deadlines</td><td>12-month lookback</td><td class="num">Zero missed</td></tr>
+      <tr><td class="k">Permit-renewal lead time</td><td>Current average</td><td class="num">Initiated ≥60 days before expiry, every time</td></tr>
+      <tr><td class="k">Letter / document turnaround</td><td>Request → issued</td><td class="num">Same-day</td></tr>
+      <tr><td class="k">Recruitment: CV → shortlist decision</td><td>Current average</td><td class="num">−50%</td></tr>
+      <tr><td class="k">DRC / quota position visibility</td><td>Monthly, manual</td><td class="num">Live, daily-synced</td></tr>
+    </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">04 / ADOPTION</span><h2>Pilot &amp; rollout plan</h2></div>
+    <ol class="clean">
+      <li><b>Pilot (4 weeks):</b> Executive (FW) + HR Manager use the Compliance Monitor and Documents modules alongside current methods. FW is chosen because permit/DRC alerts deliver the fastest visible value.</li>
+      <li><b>Weekly feedback loop:</b> 30-minute session; fixes shipped weekly. The pilot users become the internal champions.</li>
+      <li><b>Department rollout:</b> remaining four roles onboarded with half-day hands-on training; job aids kept inside the portal's Knowledge Assistant.</li>
+      <li><b>Go/no-go for Phase 2:</b> after 8–10 weeks of live use, review metrics against §03 and decide the payroll phase.</li>
+    </ol>
+    <div class="callout"><b>Build vs buy, honestly:</b> off-the-shelf HR/ATS products exist and are cheaper for generic recruitment or leave tracking. Nothing off-the-shelf covers our Singapore-contractor compliance core — DRC/quota tracking, levy &amp; waiver, BCA licence conditions, FCF enforcement, HRIQ coexistence. Custom is justified for that core; if scope ever drifts toward generic HR features that products already do well, we should buy, not build.</div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">05 / RISKS</span><h2>Top risks &amp; how the design contains them</h2></div>
+    <ul class="clean">
+      <li><b>Payroll/statutory errors</b> → deterministic code (never AI), maker-checker approval, and a parallel-run against the current process before anything is authoritative.</li>
+      <li><b>PDPA / data protection</b> → HR-only access with MFA, Singapore-resident hosting, AI never sees raw personal data (de-identification gateway), full audit trail, independent security review before go-live.</li>
+      <li><b>Wrong regulatory rules encoded</b> → all statutory figures verified by the named compliance owner (Ye Zaw Lin) before being hard-coded; rules kept configurable.</li>
+      <li><b>Key-person / maintenance risk</b> → mainstream stack (Python/React), documented, tested; a named maintenance owner is a condition of go-live.</li>
+      <li><b>Adoption failure</b> → pilot-first rollout with champions, not a big-bang switch.</li>
+    </ul>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">06 / DECISIONS NEEDED</span><h2>What we need from management</h2></div>
+    <ol class="clean">
+      <li><b>Approve Phase 0 + 1 budget</b> (§02) and the in-house vs vendor route.</li>
+      <li><b>Confirm cloud policy</b> — Singapore-region cloud hosting for HR data (recommended), or on-premises if policy forbids cloud.</li>
+      <li><b>Confirm identity provider</b> (Microsoft 365 / Entra ID assumed) for HR-only single sign-on.</li>
+      <li><b>Name the maintenance owner</b> (in-house engineer or support contract) as a go-live condition.</li>
+    </ol>
+    <p style="font-size:13.5px;color:var(--slate-2)">Full detail sits behind this brief: requirements specification, technical architecture, working prototype, gap analysis and phased roadmap — all linked from the project hub (<a href="index.html">index.html</a>).</p>
+  </section>
+
+  <footer>
+    Prepared for management review · 3 July 2026 · Business owner (compliance): Ye Zaw Lin. Cost figures are planning ranges to be validated by quotes; statutory references pending verification against current MOM / BCA / CPF / PDPC requirements.
+  </footer>
+
+</div>

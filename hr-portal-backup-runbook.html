@@ -1,0 +1,215 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HR Portal — Backup &amp; Recovery Runbook</title>
+<style>
+  :root{
+    --ink:#14202e;--ink-2:#243446;--slate:#4a5a6c;--slate-2:#6b7a8a;--slate-3:#8a97a5;
+    --line:#d8dee6;--line-2:#e8edf2;--paper:#f4f6f9;--paper-2:#fbfcfd;--white:#fff;
+    --steel:#2f5d8a;--steel-soft:#e4edf5;
+    --ok:#1f7a52;--ok-bg:#e5f4ec;--warn:#b5740a;--warn-bg:#fbeed5;--crit:#9c2a2a;--crit-bg:#f8e7e7;
+    --mono:ui-monospace,"Cascadia Code","Consolas","SF Mono",Menlo,monospace;
+    --sans:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:980px;margin:0 auto;padding:0 24px 90px;}
+  header.mast{background:var(--ink);color:#eef3f8;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:26px 26px;border-bottom:3px solid var(--steel);}
+  .mast-inner{max-width:980px;margin:0 auto;padding:38px 24px 32px;}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#8fb4d6;margin:0 0 12px;}
+  h1.title{font-size:clamp(26px,4vw,40px);line-height:1.1;margin:0 0 12px;font-weight:700;letter-spacing:-.01em;color:var(--white);}
+  .lede{max-width:66ch;color:#c4d3e1;font-size:16.5px;margin:0;}
+  .mast-meta{margin-top:18px;display:flex;flex-wrap:wrap;gap:8px;}
+  .tag{font-family:var(--mono);font-size:11.5px;color:#cfe0ef;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.16);border-radius:4px;padding:4px 9px;}
+  section{margin-top:44px;}
+  .sec-head{border-bottom:2px solid var(--ink);padding-bottom:8px;margin-bottom:14px;}
+  .sec-num{font-family:var(--mono);font-size:12px;color:var(--steel);letter-spacing:.12em;font-weight:600;}
+  h2{font-size:clamp(19px,2.8vw,25px);margin:3px 0 0;letter-spacing:-.01em;}
+  p{margin:0 0 12px;max-width:76ch;}
+  .sec-sub{color:var(--slate);margin:10px 0 0;max-width:76ch;}
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:12px;}
+  .tile{background:var(--white);border:1px solid var(--line);border-radius:10px;padding:15px 17px;border-top:4px solid var(--steel);}
+  .tile .n{font-size:22px;font-weight:700;letter-spacing:-.01em;}
+  .tile .l{font-size:12.5px;color:var(--slate-2);margin-top:2px;}
+  .tblscroll{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--white);margin-top:10px;}
+  table.t{width:100%;border-collapse:collapse;font-size:13.5px;}
+  table.t th{background:var(--ink);color:#fff;text-align:left;padding:9px 13px;font-size:12px;font-weight:600;white-space:nowrap;}
+  table.t td{padding:9px 13px;border-top:1px solid var(--line-2);vertical-align:top;}
+  table.t tr:nth-child(even) td{background:var(--paper-2);}
+  table.t td.k{font-weight:600;white-space:nowrap;}
+  .callout{border-radius:9px;padding:15px 18px;font-size:14.5px;margin-top:14px;background:var(--steel-soft);border:1px solid #bcd3e6;}
+  .callout.warn{background:var(--warn-bg);border-color:#ecd6a3;}
+  .callout b{color:var(--ink);}
+  .callout .h{font-family:var(--mono);font-size:11px;letter-spacing:.07em;text-transform:uppercase;display:block;margin-bottom:6px;color:var(--steel);}
+  .callout.warn .h{color:var(--warn);}
+  ul.clean{margin:6px 0 12px;padding-left:20px;}
+  ul.clean li{margin:6px 0;max-width:76ch;}
+  ul.clean li b{color:var(--ink-2);}
+  ol.clean{margin:6px 0 12px;padding-left:22px;}
+  ol.clean li{margin:7px 0;max-width:76ch;}
+  .scenario{background:var(--white);border:1px solid var(--line);border-radius:10px;margin-top:14px;overflow:hidden;}
+  .scenario .sh{padding:13px 18px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-left:5px solid var(--steel);}
+  .scenario.warn .sh{border-left-color:var(--warn);}
+  .scenario.crit .sh{border-left-color:var(--crit);}
+  .scenario .sh b{font-size:15.5px;}
+  .scenario .sev{font-family:var(--mono);font-size:10px;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:999px;}
+  .scenario .sev.a{background:var(--ok-bg);color:var(--ok);}
+  .scenario .sev.b{background:var(--warn-bg);color:var(--warn);}
+  .scenario .sev.c{background:var(--crit-bg);color:var(--crit);}
+  .scenario .sb{padding:4px 18px 14px;}
+  .scenario .sb ol{margin:6px 0 4px;padding-left:22px;font-size:14px;}
+  .scenario .sb ol li{margin:6px 0;}
+  .scenario .meta{font-size:12px;color:var(--slate-2);font-family:var(--mono);}
+  footer{margin-top:56px;padding-top:18px;border-top:1px solid var(--line);font-size:12.5px;color:var(--slate-2);}
+  code{font-family:var(--mono);font-size:.88em;background:var(--steel-soft);padding:1px 5px;border-radius:3px;color:var(--ink-2);}
+</style>
+
+<header class="mast">
+  <div class="mast-inner">
+    <p class="eyebrow">HR Portal · Backup &amp; Recovery</p>
+    <h1 class="title">Backup &amp; Recovery Runbook</h1>
+    <p class="lede">What is backed up, where it lives, and exactly what to do when something is lost — written so a non-developer can execute every recovery, with Claude in a session as co-pilot.</p>
+    <div class="mast-meta">
+      <span class="tag">3-2-1 rule</span>
+      <span class="tag">Tested restores, quarterly</span>
+      <span class="tag">PDPA applies to backups too</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section>
+    <div class="sec-head"><span class="sec-num">00 / PRINCIPLES</span><h2>Three rules this runbook lives by</h2></div>
+    <ul class="clean">
+      <li><b>3-2-1:</b> at least 3 copies of the data, on 2 different systems, 1 of them separate from the main cloud account — so even a full account compromise or ransomware event cannot touch every copy.</li>
+      <li><b>A backup you haven't restored is a hope, not a backup.</b> We rehearse a real restore every quarter and log it (§04).</li>
+      <li><b>Backups are personal data.</b> They're encrypted, access-restricted, and retention-limited so purged records also age out of the backups (§05).</li>
+    </ul>
+    <div class="tiles">
+      <div class="tile"><div class="n">≤ 24 h</div><div class="l">Max data loss (RPO) — in practice minutes, via point-in-time restore</div></div>
+      <div class="tile"><div class="n">≤ 1 business day</div><div class="l">Max downtime (RTO) — HR falls back to manual process meanwhile</div></div>
+      <div class="tile"><div class="n">~S$10–40 / month</div><div class="l">Estimated backup storage cost at this data size</div></div>
+    </div>
+    <p class="sec-sub">These targets are deliberate: for a 6-user internal portal, a day of downtime is an inconvenience, not a crisis — so we buy simplicity rather than expensive zero-downtime engineering. The one thing we never accept losing is data.</p>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">01 / INVENTORY</span><h2>What is backed up, where, how</h2></div>
+    <div class="tblscroll">
+    <table class="t">
+      <tr><th>Asset</th><th>Primary protection</th><th>Second copy (separate)</th><th>Retention</th></tr>
+      <tr><td class="k">Portal database<br><span style="font-weight:400;color:var(--slate-2)">records, cases, audit log</span></td><td>Azure managed PostgreSQL automatic daily backups + point-in-time restore (any minute, last 35 days), geo-redundant</td><td>Weekly full export (<code>pg_dump</code>) to a separate, locked storage account</td><td>35 days PITR · 8 weekly exports</td></tr>
+      <tr><td class="k">Documents &amp; CVs<br><span style="font-weight:400;color:var(--slate-2)">blob storage</span></td><td>Versioning + soft delete (deleted/overwritten files recoverable 30 days) + geo-redundant storage</td><td>Weekly incremental copy to the same separate account</td><td>30 days versions · 8 weekly copies</td></tr>
+      <tr><td class="k">HRIQ extracts<br><span style="font-weight:400;color:var(--slate-2)">landing zone</span></td><td>Lower criticality — re-generatable by re-running extraction against HRIQ (the vendor holds the system of record)</td><td>Last 4 extracts kept</td><td>30 days</td></tr>
+      <tr><td class="k">Code &amp; configuration</td><td>Git repository with private remote (GitHub) — every change, full history</td><td>The remote <em>is</em> the second copy; local clone is a third</td><td>Forever</td></tr>
+      <tr><td class="k">Secrets</td><td>Azure Key Vault (soft delete + purge protection — even a deleted vault is recoverable for 90 days)</td><td>An encrypted inventory of <em>which</em> secrets exist and how to re-issue each (never the values)</td><td>90 days</td></tr>
+      <tr><td class="k">Templates &amp; knowledge base</td><td>Stored in the database and blob storage — covered by the two rows above</td><td>—</td><td>as above</td></tr>
+    </table>
+    </div>
+    <div class="callout"><span class="h">Why the separate storage account matters</span>The weekly exports go to a storage account with <b>different access keys, immutability (write-once) enabled, and no connection from the portal app</b>. If the main environment is compromised or encrypted by ransomware, the attacker cannot reach these copies. This is the "1" in 3-2-1 and the single most important line in this document.</div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">02 / MONITORING</span><h2>Knowing the backups actually ran</h2></div>
+    <ul class="clean">
+      <li><b>Automated:</b> the weekly export job sends a success/failure email; a failed nightly Azure backup raises a Defender alert. <b>Silence is not success</b> — the job also sends a weekly "backup OK" heartbeat, so a missing email is itself the alarm.</li>
+      <li><b>Monthly (your routine, 2 min):</b> glance at the backup dashboard — last PITR timestamp, last export date, export file size roughly consistent with the previous one (a sudden tiny file = something wrong).</li>
+    </ul>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">03 / RECOVERY SCENARIOS</span><h2>When something is lost — do this</h2></div>
+    <p class="sec-sub">Each scenario is written for you to execute with me in a session ("open Claude, open this page"). Times are realistic estimates including verification.</p>
+
+    <div class="scenario">
+      <div class="sh"><b>A · Someone deleted or overwrote a record / document</b><span class="sev a">Common · low risk</span><span class="meta">~15–30 min · no downtime</span></div>
+      <div class="sb"><ol>
+        <li>Don't panic and don't try to re-create it by hand — that complicates recovery.</li>
+        <li><b>Document:</b> Azure Portal → storage account → the container → toggle "Show deleted blobs" → select the file → Undelete. Done.</li>
+        <li><b>Database record:</b> open a session with me. We restore the database to a point just before the deletion <em>as a copy</em>, extract the affected record(s), and re-insert them into the live database. The live system never goes down.</li>
+        <li>Note the incident in the drill log (§04) — real recoveries count as drills.</li>
+      </ol></div>
+    </div>
+
+    <div class="scenario warn">
+      <div class="sh"><b>B · Database corrupted or badly wrong (bad import, bulk error)</b><span class="sev b">Rare · medium</span><span class="meta">~1–2 h · portal offline during restore</span></div>
+      <div class="sb"><ol>
+        <li>Stop the portal app (Azure Portal → App Service → Stop). Tell the HR team to hold off; manual process meanwhile.</li>
+        <li>Identify the last-known-good time (the audit log or the HR team will know when things were right).</li>
+        <li>Azure Portal → PostgreSQL server → <b>Restore</b> → pick date/time → restores to a <em>new</em> server (the damaged one is untouched — you can't make it worse).</li>
+        <li>With me in a session: point the app at the restored server (one connection-string change in Key Vault), start the app, and run the verification checklist (record counts, latest documents, one letter generation).</li>
+        <li>Anything entered between last-good and now is re-entered by HR from the day's paperwork — this is the ≤24 h RPO in practice.</li>
+      </ol></div>
+    </div>
+
+    <div class="scenario warn">
+      <div class="sh"><b>C · Azure Singapore region outage</b><span class="sev b">Very rare</span><span class="meta">Hours (Azure's recovery) or ~2–4 h (geo-restore)</span></div>
+      <div class="sb"><ol>
+        <li>First: check the Azure status page. Most outages resolve on their own — for a 1-day RTO, <b>waiting is usually the right move</b>.</li>
+        <li>If it's prolonged: geo-redundant backups allow restoring the database and storage into another region (Southeast Asia pair). We do this together in a session. Note: data temporarily leaves Singapore — an accepted-in-emergency deviation; document it and restore to SG when the region returns.</li>
+      </ol></div>
+    </div>
+
+    <div class="scenario crit">
+      <div class="sh"><b>D · Account compromise / ransomware</b><span class="sev c">Worst case</span><span class="meta">~1 day · assume main environment is hostile</span></div>
+      <div class="sb"><ol>
+        <li>This is a security incident first — follow the Security Plan §06 (contain, preserve, notify) before any restore.</li>
+        <li>Do <b>not</b> restore into the compromised environment. With IT admin + me: fresh resource group (or fresh subscription), rebuilt from git.</li>
+        <li>Data comes from the <b>separate storage account</b> exports (untouchable by the attacker): latest <code>pg_dump</code> + document copies. Worst-case data loss: one week.</li>
+        <li>All secrets re-issued from the Key Vault inventory; all users re-verified; pen-tester engaged before going back live.</li>
+      </ol></div>
+    </div>
+
+    <div class="scenario">
+      <div class="sh"><b>E · Full rebuild from nothing</b><span class="sev a">The ultimate test</span><span class="meta">~1 day</span></div>
+      <div class="sb"><ol>
+        <li>Everything needed exists in three places: <b>git</b> (all code + infrastructure config), <b>backups</b> (all data), <b>Key Vault / secret inventory</b> (all credentials). </li>
+        <li>With me: deploy infrastructure from the config in git → restore database from the latest export → copy documents back → re-issue secrets → verify. This is rehearsed once a year as the annual drill (§04).</li>
+      </ol></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">04 / DRILLS</span><h2>Restore drills — the discipline</h2></div>
+    <ul class="clean">
+      <li><b>Quarterly (~30 min, with me):</b> alternate between Scenario A (restore one record from PITR into a test copy) and Scenario B (full restore to a new server, verify, delete). We never drill against production.</li>
+      <li><b>Annually:</b> one Scenario E rebuild into a throwaway environment — proves that git + backups + secrets inventory are genuinely sufficient to resurrect everything.</li>
+      <li><b>Log every drill</b> (and every real recovery) in the table below — kept in this document. An empty log is an audit finding against ourselves.</li>
+    </ul>
+    <div class="tblscroll">
+    <table class="t">
+      <tr><th>Date</th><th>Scenario</th><th>Result</th><th>Time taken</th><th>Issues found → fixed</th></tr>
+      <tr><td colspan="5" style="color:var(--slate-3);font-style:italic">No drills logged yet — first drill due within one month of Phase 0 completion.</td></tr>
+    </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">05 / PDPA &amp; RETENTION</span><h2>Backups hold personal data too</h2></div>
+    <ul class="clean">
+      <li><b>Same protection as production:</b> encrypted at rest, access limited to the operator (you) and break-glass IT admin; access to the separate export account is itself logged.</li>
+      <li><b>Retention by design:</b> PITR window 35 days, weekly exports kept 8 weeks. When a record is purged from the live system under the retention policy, it disappears from all backups within ~2 months automatically — no manual backup-scrubbing needed. This "purge + cycle-out" approach is the practical way to honour retention obligations in backups.</li>
+      <li><b>Restores can resurrect purged data:</b> after any restore, re-run the retention job before going live so records purged since the backup date are purged again.</li>
+      <li><b>Geo-redundancy note:</b> Azure's paired-region copies exist for disaster recovery; confirm the pairing and document it in the PDPA records as part of the data-location disclosure.</li>
+    </ul>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">06 / SETUP CHECKLIST</span><h2>One-time setup (Phase 0, with me)</h2></div>
+    <ol class="clean">
+      <li>Enable automated backups + 35-day PITR + geo-redundancy on the PostgreSQL server.</li>
+      <li>Enable blob versioning + 30-day soft delete + geo-redundant storage on the documents account.</li>
+      <li>Create the <b>separate</b> backup storage account: different keys, immutability policy, no app access; store its credentials only in the operator's break-glass location.</li>
+      <li>Deploy the weekly export job (database dump + document sync) with success/heartbeat emails to you.</li>
+      <li>Key Vault: soft delete + purge protection on; write the secrets inventory.</li>
+      <li>Git remote configured; confirm infra config is in the repo, not just on a machine.</li>
+      <li>Book the first restore drill.</li>
+    </ol>
+    <div class="callout warn"><span class="h">The honest failure mode</span>Backup systems don't usually fail loudly — they fail by nobody noticing they stopped. The heartbeat email (§02) and the drill log (§04) exist precisely so that "it silently stopped working in March" cannot happen here.</div>
+  </section>
+
+  <footer>
+    HR Portal Backup &amp; Recovery Runbook v1.0 · 3 July 2026 · Operator: Ye Zaw Lin · Companion: Security Plan. Azure feature specifics (PITR window, soft-delete, immutability) to be confirmed against current Azure documentation at setup time.
+  </footer>
+
+</div>

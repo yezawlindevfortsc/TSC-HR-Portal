@@ -1,0 +1,159 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HR Portal — Project Hub</title>
+<style>
+  :root{
+    --ink:#14202e;--ink-2:#243446;--slate:#4a5a6c;--slate-2:#6b7a8a;--slate-3:#8a97a5;
+    --line:#d8dee6;--line-2:#e8edf2;--paper:#f4f6f9;--paper-2:#fbfcfd;--white:#fff;
+    --steel:#2f5d8a;--steel-2:#3f7bb0;--steel-soft:#e4edf5;
+    --mono:ui-monospace,"Cascadia Code","Consolas","SF Mono",Menlo,monospace;
+    --sans:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;}
+  a{color:var(--steel);}
+  .wrap{max-width:1020px;margin:0 auto;padding:0 24px 90px;}
+  :focus-visible{outline:2px solid var(--steel-2);outline-offset:2px;}
+
+  header.mast{background:var(--ink);color:#eef3f8;background-image:linear-gradient(rgba(255,255,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px);background-size:26px 26px;border-bottom:3px solid var(--steel);}
+  .mast-inner{max-width:1020px;margin:0 auto;padding:46px 24px 38px;}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#8fb4d6;margin:0 0 14px;}
+  h1.title{font-size:clamp(30px,5vw,48px);line-height:1.06;margin:0 0 16px;font-weight:700;letter-spacing:-.015em;color:var(--white);}
+  .lede{max-width:66ch;color:#c4d3e1;font-size:17px;margin:0;}
+  .mast-meta{margin-top:22px;display:flex;flex-wrap:wrap;gap:8px;}
+  .tag{font-family:var(--mono);font-size:11.5px;letter-spacing:.04em;color:#cfe0ef;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.16);border-radius:4px;padding:4px 9px;}
+
+  section{margin-top:46px;}
+  .sec-head{border-bottom:2px solid var(--ink);padding-bottom:10px;margin-bottom:8px;}
+  .sec-num{font-family:var(--mono);font-size:13px;color:var(--steel);letter-spacing:.12em;font-weight:600;}
+  h2{font-size:clamp(20px,3vw,26px);margin:4px 0 0;letter-spacing:-.01em;}
+  .sec-sub{color:var(--slate);margin:10px 0 0;max-width:74ch;}
+
+  .docs{display:grid;gap:14px;margin-top:22px;}
+  .doc{background:var(--white);border:1px solid var(--line);border-radius:11px;padding:18px 20px;display:grid;grid-template-columns:54px 1fr;gap:16px;align-items:start;transition:border-color .15s,box-shadow .15s;}
+  .doc:hover{border-color:var(--steel-2);box-shadow:0 3px 16px rgba(20,32,46,.07);}
+  .doc .num{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--white);background:var(--steel);width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;}
+  .doc.src .num{background:var(--slate-3);}
+  .doc h3{margin:0 0 4px;font-size:18px;letter-spacing:-.01em;}
+  .doc h3 a{text-decoration:none;color:var(--ink);}
+  .doc h3 a:hover{color:var(--steel);}
+  .doc p{margin:0 0 12px;font-size:14px;color:var(--slate);max-width:72ch;}
+  .doc .fmt{font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--slate-2);background:var(--paper-2);border:1px solid var(--line-2);border-radius:5px;padding:2px 8px;margin-left:8px;vertical-align:middle;}
+  .links{display:flex;gap:10px;flex-wrap:wrap;}
+  .lk{font-size:13px;font-weight:600;text-decoration:none;border-radius:7px;padding:7px 13px;display:inline-flex;align-items:center;gap:6px;}
+  .lk.primary{background:var(--steel);color:#fff;}
+  .lk.primary:hover{background:var(--steel-2);}
+  .lk.ghost{background:none;color:var(--steel);border:1px solid var(--line);}
+  .lk.ghost:hover{border-color:var(--steel-2);}
+
+  .callout{background:var(--steel-soft);border:1px solid #bcd3e6;border-radius:9px;padding:15px 18px;font-size:14px;margin-top:18px;}
+  .callout b{color:var(--ink);}
+  .next{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:8px;}
+  .nc{background:var(--white);border:1px solid var(--line);border-radius:10px;padding:15px 17px;border-top:4px solid var(--steel);}
+  .nc h4{margin:0 0 5px;font-size:15px;}
+  .nc p{margin:0;font-size:13px;color:var(--slate);}
+
+  footer{margin-top:60px;padding-top:20px;border-top:1px solid var(--line);font-size:12.5px;color:var(--slate-2);}
+  .hint{font-size:12.5px;color:var(--slate-2);font-style:italic;margin-top:14px;}
+</style>
+
+<header class="mast">
+  <div class="mast-inner">
+    <p class="eyebrow">HR Portal · Project Hub</p>
+    <h1 class="title">AI-Assisted HR Portal</h1>
+    <p class="lede">Everything for the HR-only portal in one place — the analysis, the specs, the working prototype, and the plan. Built for a Singapore BCA&nbsp;A1 construction contractor&#39;s six-role HR department.</p>
+    <div class="mast-meta">
+      <span class="tag">10 documents</span>
+      <span class="tag">HR-only · PDPA-governed</span>
+      <span class="tag">Prototype + full plan</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section id="docs">
+    <div class="sec-head"><span class="sec-num">THE DELIVERABLES</span><h2>Read in order</h2></div>
+    <p class="sec-sub">Each builds on the last — from the source job scopes, through analysis and specs, to a clickable prototype and a costed roadmap.</p>
+
+    <div class="docs">
+
+      <div class="doc src"><div class="num">0</div><div>
+        <h3>Source — HR JOBS<span class="fmt">Word · input</span></h3>
+        <p>The original job-scope document for the six-role HR department. Everything else is derived from this.</p>
+        <div class="links"><a class="lk ghost" href="HR%20JOBS.docx">Open file</a></div>
+      </div></div>
+
+      <div class="doc"><div class="num">1</div><div>
+        <h3>Roles, Tasks &amp; AI Mapping<span class="fmt">Interactive · HTML</span></h3>
+        <p>Every HR task broken down by role and tagged by how AI applies — AI-led, AI-assisted, or human-only. The foundation for the whole portal.</p>
+        <div class="links"><a class="lk primary" href="hr-portal-blueprint.html">Open</a><a class="lk ghost" href="https://claude.ai/code/artifact/b30fd079-cbf2-41b1-81a0-7ee5845a3321">Shared link ↗</a></div>
+      </div></div>
+
+      <div class="doc"><div class="num">2</div><div>
+        <h3>Requirements Specification<span class="fmt">Word · SRS</span></h3>
+        <p>The formal spec — scope, RBAC, security &amp; PDPA, functional requirements (with IDs), non-functional requirements, phasing and risks. The document to hand a developer or vendor.</p>
+        <div class="links"><a class="lk primary" href="HR%20Portal%20-%20Requirements%20Specification.docx">Open file</a></div>
+      </div></div>
+
+      <div class="doc"><div class="num">3</div><div>
+        <h3>Technical Architecture &amp; Data-Flow<span class="fmt">Interactive · HTML</span></h3>
+        <p>How it&#39;s built — the cost-aware HRIQ sync, Python-first stack, SG-resident hosting, the AI-to-PII sandbox, and the CV-parsing pipeline.</p>
+        <div class="links"><a class="lk primary" href="hr-portal-architecture.html">Open</a><a class="lk ghost" href="https://claude.ai/code/artifact/531dccef-a408-4a55-9dab-a7706572b042">Shared link ↗</a></div>
+      </div></div>
+
+      <div class="doc"><div class="num">4</div><div>
+        <h3>Clickable Prototype<span class="fmt">Interactive · demo</span></h3>
+        <p>A working Phase-1 demo with synthetic data: switch roles to see RBAC, the Compliance Monitor, Recruitment (CV upload → AI parse → fit-score), the Document Generator with letterhead output, and the Knowledge Assistant.</p>
+        <div class="links"><a class="lk primary" href="hr-portal-prototype.html">Open</a><a class="lk ghost" href="https://claude.ai/code/artifact/9ad19274-eb6a-499e-9757-0b36b29b6de6">Shared link ↗</a></div>
+      </div></div>
+
+      <div class="doc"><div class="num">5</div><div>
+        <h3>Coverage &amp; Gap Analysis<span class="fmt">Interactive · HTML</span></h3>
+        <p>The prototype scored against every task: what&#39;s built, partial, or missing — and the fifteen modules still to add.</p>
+        <div class="links"><a class="lk primary" href="hr-portal-gap-analysis.html">Open</a><a class="lk ghost" href="https://claude.ai/code/artifact/2f26a903-6329-49c7-ae3d-0ebef36d6b9f">Shared link ↗</a></div>
+      </div></div>
+
+      <div class="doc"><div class="num">6</div><div>
+        <h3>Build Roadmap &amp; Effort Estimates<span class="fmt">Interactive · HTML</span></h3>
+        <p>The plan — four phases, ~50–65 engineer-weeks, a timeline, per-module effort, team, gates and a recommended first move.</p>
+        <div class="links"><a class="lk primary" href="hr-portal-roadmap.html">Open</a><a class="lk ghost" href="https://claude.ai/code/artifact/7febea51-3576-4626-88ec-2823e8b81891">Shared link ↗</a></div>
+      </div></div>
+
+      <div class="doc"><div class="num">7</div><div>
+        <h3>Management Brief<span class="fmt">Interactive · 1-page</span></h3>
+        <p>The decision brief for the boss — what it is, S$ cost ranges (in-house vs vendor), success metrics with baselines, the pilot plan, build-vs-buy, and the four decisions needed from management.</p>
+        <div class="links"><a class="lk primary" href="hr-portal-brief.html">Open</a><a class="lk ghost" href="https://claude.ai/code/artifact/a2b378dc-77f5-4514-8231-5eab0758dd03">Shared link ↗</a></div>
+      </div></div>
+
+      <div class="doc"><div class="num">8</div><div>
+        <h3>Security Plan<span class="fmt">Operator runbook</span></h3>
+        <p>Solo-operator security: threat model, the control stack (who builds vs who operates), AI-specific rules, the monthly 15-minute routine, and the first-hour incident response steps with PDPA notification rules.</p>
+        <div class="links"><a class="lk primary" href="hr-portal-security-plan.html">Open</a><a class="lk ghost" href="https://claude.ai/code/artifact/4f1ac5ab-d1eb-4ec6-8929-fb3c4d493c45">Shared link ↗</a></div>
+      </div></div>
+
+      <div class="doc"><div class="num">9</div><div>
+        <h3>Backup &amp; Recovery Runbook<span class="fmt">Operator runbook</span></h3>
+        <p>3-2-1 backup design, the full inventory, five step-by-step recovery scenarios a non-developer can execute, the quarterly drill schedule with log, and PDPA retention applied to backups.</p>
+        <div class="links"><a class="lk primary" href="hr-portal-backup-runbook.html">Open</a><a class="lk ghost" href="https://claude.ai/code/artifact/c2de46ae-c568-4496-a926-75e30fbff565">Shared link ↗</a></div>
+      </div></div>
+
+    </div>
+    <p class="hint">Tip: open this page from the <b>For HR</b> folder and the “Open” buttons launch the local files directly (the prototype&#39;s download &amp; print work fully there). The “Shared link” buttons are for sending to others online.</p>
+  </section>
+
+  <section id="status">
+    <div class="sec-head"><span class="sec-num">WHERE THINGS STAND</span><h2>Status &amp; next steps</h2></div>
+    <div class="callout"><b>Done:</b> analysis, requirements, architecture, a working Phase-1 prototype, gap analysis and a costed roadmap. <b>Decisions made:</b> HR-only access, human-in-the-loop on consequential actions, deterministic code for payroll/statutory math, PDPA-by-design, MVP-first phasing, and a cost-aware HRIQ batch sync (reusing your Python-to-Excel extraction).</div>
+    <div class="next" style="margin-top:16px">
+      <div class="nc"><h4>Before any build</h4><p>Confirm the HRIQ extraction approach and have a compliance person verify the statutory rules.</p></div>
+      <div class="nc"><h4>Recommended first move</h4><p>Fund Phase&nbsp;0 + Phase&nbsp;1 (~4–6 months, small team) — a usable portal that proves the architecture before the money-critical payroll work.</p></div>
+      <div class="nc"><h4>Open options</h4><p>Refine the prototype further, prototype a Phase-2 module (e.g. Payroll or FW Lifecycle), or confirm hosting &amp; identity provider.</p></div>
+    </div>
+  </section>
+
+  <footer>
+    HR Portal project hub · prepared for the HR department of a BCA A1 construction contractor (Singapore). Planning artifacts — verify all statutory references against current MOM / BCA / CPF / PDPA requirements before build. Ye Zaw Lin is named business owner for compliance matters.
+  </footer>
+
+</div>

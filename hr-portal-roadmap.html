@@ -1,0 +1,241 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HR Portal — Build Roadmap &amp; Effort Estimates</title>
+<style>
+  :root{
+    --ink:#14202e;--ink-2:#243446;--slate:#4a5a6c;--slate-2:#6b7a8a;--slate-3:#8a97a5;
+    --line:#d8dee6;--line-2:#e8edf2;--paper:#f4f6f9;--paper-2:#fbfcfd;--white:#fff;
+    --steel:#2f5d8a;--steel-soft:#e4edf5;
+    --p0:#5b6b7a;--p1:#1f7a52;--p2:#1f497d;--p3:#7030a0;--gate:#b5740a;
+    --mono:ui-monospace,"Cascadia Code","Consolas","SF Mono",Menlo,monospace;
+    --sans:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1060px;margin:0 auto;padding:0 24px 96px;}
+  header.mast{background:var(--ink);color:#eef3f8;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:26px 26px;border-bottom:3px solid var(--steel);}
+  .mast-inner{max-width:1060px;margin:0 auto;padding:40px 24px 34px;}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#8fb4d6;margin:0 0 14px;}
+  h1.title{font-size:clamp(28px,4.4vw,42px);line-height:1.08;margin:0 0 16px;font-weight:700;letter-spacing:-.01em;color:var(--white);}
+  .lede{max-width:68ch;color:#c4d3e1;font-size:17px;margin:0;}
+  section{margin-top:50px;}
+  .sec-head{border-bottom:2px solid var(--ink);padding-bottom:10px;margin-bottom:16px;}
+  .sec-num{font-family:var(--mono);font-size:13px;color:var(--steel);letter-spacing:.12em;font-weight:600;}
+  h2{font-size:clamp(21px,3vw,28px);margin:4px 0 0;letter-spacing:-.01em;}
+  .sec-sub{color:var(--slate);margin:10px 0 0;max-width:74ch;}
+  p{margin:0 0 12px;}
+
+  .callout{background:var(--steel-soft);border:1px solid #bcd3e6;border-radius:9px;padding:16px 18px;font-size:14.5px;margin-top:8px;}
+  .callout.warn{background:#fbeed5;border-color:#ecd6a3;}
+  .callout b{color:var(--ink);}
+  .callout .h{font-family:var(--mono);font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--steel);display:block;margin-bottom:6px;}
+  .callout.warn .h{color:var(--gate);}
+
+  /* gantt */
+  .gantt{margin-top:8px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--white);}
+  .grow{display:grid;grid-template-columns:200px 1fr;border-top:1px solid var(--line-2);}
+  .grow:first-child{border-top:none;}
+  .glabel{padding:10px 14px;font-size:13px;font-weight:600;display:flex;align-items:center;border-right:1px solid var(--line-2);}
+  .gcells{display:grid;grid-template-columns:repeat(12,1fr);position:relative;}
+  .gcells.head span{font-family:var(--mono);font-size:10.5px;color:var(--slate-2);text-align:center;padding:7px 0;border-left:1px solid var(--line-2);}
+  .gcells.head span:first-child{border-left:none;}
+  .gcells .grid-bg{position:absolute;inset:0;display:grid;grid-template-columns:repeat(12,1fr);pointer-events:none;}
+  .gcells .grid-bg i{border-left:1px solid var(--line-2);}
+  .gcells .grid-bg i:first-child{border-left:none;}
+  .bar{margin:7px 4px;border-radius:6px;color:#fff;font-size:11.5px;font-weight:600;padding:5px 9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;z-index:1;}
+  .bar.p0{background:var(--p0);} .bar.p1{background:var(--p1);} .bar.p2{background:var(--p2);} .bar.p3{background:var(--p3);}
+  .bar.gate{background:var(--gate);text-align:center;}
+
+  .legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:12px;font-size:12.5px;color:var(--slate);}
+  .legend span{display:inline-flex;align-items:center;gap:6px;}
+  .dot{width:11px;height:11px;border-radius:3px;display:inline-block;}
+
+  .phase{background:var(--white);border:1px solid var(--line);border-radius:10px;margin-top:16px;border-left:6px solid var(--slate);overflow:hidden;}
+  .phase.p0{border-left-color:var(--p0);} .phase.p1{border-left-color:var(--p1);} .phase.p2{border-left-color:var(--p2);} .phase.p3{border-left-color:var(--p3);}
+  .phase-head{padding:15px 20px;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;}
+  .phase-head h3{margin:0;font-size:18px;}
+  .phase-head .dur{font-family:var(--mono);font-size:12px;color:var(--white);background:var(--slate);padding:2px 9px;border-radius:5px;}
+  .phase.p0 .dur{background:var(--p0);} .phase.p1 .dur{background:var(--p1);} .phase.p2 .dur{background:var(--p2);} .phase.p3 .dur{background:var(--p3);}
+  .phase-head .goal{font-size:13.5px;color:var(--slate-2);width:100%;}
+  .phase-body{padding:0 20px 16px;}
+  .gate-line{font-size:13px;color:var(--gate);background:#fbf4e4;border:1px solid #ecd6a3;border-radius:7px;padding:9px 12px;margin-top:10px;}
+  .gate-line b{color:#7a4e06;}
+
+  .tblscroll{overflow-x:auto;border:1px solid var(--line);border-radius:10px;margin-top:8px;}
+  table.eff{width:100%;border-collapse:collapse;font-size:13.5px;}
+  table.eff th{background:var(--ink);color:#fff;text-align:left;padding:9px 13px;font-size:12px;font-weight:600;white-space:nowrap;}
+  table.eff td{padding:8px 13px;border-top:1px solid var(--line-2);vertical-align:top;}
+  table.eff tr:nth-child(even) td{background:var(--paper-2);}
+  table.eff td.wk{font-family:var(--mono);text-align:center;font-variant-numeric:tabular-nums;white-space:nowrap;}
+  table.eff td .ph{font-family:var(--mono);font-size:11px;padding:1px 6px;border-radius:4px;color:#fff;}
+  .ph.p0{background:var(--p0);} .ph.p1{background:var(--p1);} .ph.p2{background:var(--p2);} .ph.p3{background:var(--p3);}
+  table.eff tfoot td, table.eff .total td{font-weight:700;border-top:2px solid var(--line);background:var(--steel-soft)!important;}
+  .new{font-family:var(--mono);font-size:10px;color:var(--steel);border:1px solid #bcd3e6;border-radius:4px;padding:0 4px;margin-left:6px;}
+
+  .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-top:8px;}
+  .card{background:var(--white);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .card h4{margin:0 0 8px;font-size:15px;}
+  ul.clean{margin:0;padding-left:18px;} ul.clean li{margin:5px 0;font-size:14px;}
+  .est{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-top:8px;}
+  .est .e{background:var(--white);border:1px solid var(--line);border-radius:10px;padding:16px 18px;border-top:4px solid var(--steel);}
+  .est .e .n{font-size:26px;font-weight:700;letter-spacing:-.01em;}
+  .est .e .l{font-size:12.5px;color:var(--slate-2);margin-top:2px;}
+  footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--line);font-size:12.5px;color:var(--slate-2);}
+</style>
+
+<header class="mast">
+  <div class="mast-inner">
+    <p class="eyebrow">HR Portal · Build Roadmap</p>
+    <h1 class="title">From prototype to live portal</h1>
+    <p class="lede">A phased plan to build the full HR Portal — productionising the six prototype modules and adding the fifteen new ones — with rough effort estimates, sequencing, and the go-live gates that keep it safe.</p>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section id="approach">
+    <div class="sec-head"><span class="sec-num">00 / HOW TO READ THIS</span><h2>Approach &amp; assumptions</h2></div>
+    <div class="est">
+      <div class="e"><div class="n">~50–65</div><div class="l">engineer-weeks total effort</div></div>
+      <div class="e"><div class="n">~8–12</div><div class="l">months calendar (small team of 2)</div></div>
+      <div class="e"><div class="n">4</div><div class="l">phases, each independently useful</div></div>
+      <div class="e"><div class="n">21</div><div class="l">build items (6 productionise + 15 new)</div></div>
+    </div>
+    <div class="callout"><span class="h">Estimates assume</span>A small team — <b>1–2 experienced full-stack engineers</b> (Python/FastAPI + React) working <b>AI-assisted</b>, with you as product owner / compliance sign-off. A single engineer roughly doubles the calendar (~14–16 months). Estimates <b>exclude</b> HRIQ vendor lead-time, regulatory verification, and procurement — resolve those in parallel.</div>
+    <div class="callout warn"><span class="h">⚠ Two hard prerequisites</span>Confirm the <b>HRIQ extraction approach</b> (your Python-to-Excel sync) and have a <b>compliance person verify the statutory rules</b> before Phase 2. And <b>nothing in Phase 2 touches live payroll</b> until it has run in parallel with your current process and reconciled clean.</div>
+  </section>
+
+  <section id="timeline">
+    <div class="sec-head"><span class="sec-num">01 / TIMELINE</span><h2>Phase timeline</h2></div>
+    <div class="gantt">
+      <div class="grow"><div class="glabel" style="color:var(--slate-2);font-weight:600;font-family:var(--mono);font-size:11px">PHASE</div>
+        <div class="gcells head"><span>M1</span><span>M2</span><span>M3</span><span>M4</span><span>M5</span><span>M6</span><span>M7</span><span>M8</span><span>M9</span><span>M10</span><span>M11</span><span>M12</span></div></div>
+      <div class="grow"><div class="glabel">Phase 0 · Foundation</div><div class="gcells"><div class="grid-bg"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><span class="bar p0" style="grid-column:1/3">Infra · auth · sync</span></div></div>
+      <div class="grow"><div class="glabel">Phase 1 · Value modules</div><div class="gcells"><div class="grid-bg"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><span class="bar p1" style="grid-column:2/6">Productionise the 6</span></div></div>
+      <div class="grow"><div class="glabel">Security review · gate</div><div class="gcells"><div class="grid-bg"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><span class="bar gate" style="grid-column:5/6">Review</span></div></div>
+      <div class="grow"><div class="glabel">Phase 2 · Core operations</div><div class="gcells"><div class="grid-bg"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><span class="bar p2" style="grid-column:5/10">Payroll · lifecycle · claims</span></div></div>
+      <div class="grow"><div class="glabel">Payroll parallel-run · gate</div><div class="gcells"><div class="grid-bg"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><span class="bar gate" style="grid-column:8/10">Parallel-run</span></div></div>
+      <div class="grow"><div class="glabel">Phase 3 · Cycles &amp; governance</div><div class="gcells"><div class="grid-bg"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><span class="bar p3" style="grid-column:9/13">Performance · comp · admin</span></div></div>
+    </div>
+    <div class="legend">
+      <span><i class="dot" style="background:var(--p0)"></i> Foundation</span>
+      <span><i class="dot" style="background:var(--p1)"></i> Phase 1</span>
+      <span><i class="dot" style="background:var(--p2)"></i> Phase 2</span>
+      <span><i class="dot" style="background:var(--p3)"></i> Phase 3</span>
+      <span><i class="dot" style="background:var(--gate)"></i> Gate / review</span>
+    </div>
+  </section>
+
+  <section id="phases">
+    <div class="sec-head"><span class="sec-num">02 / PHASES</span><h2>What each phase delivers</h2></div>
+
+    <div class="phase p0"><div class="phase-head"><h3>Phase 0 · Foundation</h3><span class="dur">~6–10 wks</span><span class="goal">Nothing user-facing — the rails everything else runs on.</span></div>
+      <div class="phase-body">
+        <ul class="clean">
+          <li>SG-region cloud, private networking, secrets vault, CI/CD, 3 environments, backups.</li>
+          <li>SSO (Entra ID) + MFA, RBAC for the six roles, immutable audit log.</li>
+          <li>PostgreSQL schema + <b>HRIQ ingestion pipeline</b> (productionise your Python-to-Excel scripts: schedule, validate, load).</li>
+          <li>AI gateway (de-identification, logging, model integration).</li>
+        </ul>
+        <div class="gate-line"><b>Exit gate:</b> a user can log in, see role-scoped data synced from HRIQ, and every action is audit-logged.</div>
+      </div>
+    </div>
+
+    <div class="phase p1"><div class="phase-head"><h3>Phase 1 · Value modules</h3><span class="dur">~10–14 wks</span><span class="goal">Turn the six prototype modules into the real thing. No money touched.</span></div>
+      <div class="phase-body">
+        <ul class="clean">
+          <li>Role dashboards · Compliance Monitor (real rules engine + alerts) · Approvals/workflow engine.</li>
+          <li>Document Generator (real DOCX merge on uploaded letterhead templates, sandbox, history).</li>
+          <li>Knowledge Assistant (RAG over curated EA/EFMA/MOM/SOP knowledge base).</li>
+          <li>Recruitment (CV → object store → AI parse → fit-score → pipeline → emails → employment letter).</li>
+        </ul>
+        <div class="gate-line"><b>Exit gate:</b> HR uses the portal daily for monitoring, drafting, knowledge &amp; hiring. <b>Independent security review + pen test here</b> before anything handles more sensitive data.</div>
+      </div>
+    </div>
+
+    <div class="phase p2"><div class="phase-head"><h3>Phase 2 · Core operations</h3><span class="dur">~16–22 wks</span><span class="goal">The operational backbone — including the money-critical payroll engine.</span></div>
+      <div class="phase-body">
+        <ul class="clean">
+          <li>Payroll &amp; Cost Control · Levy &amp; Waiver · FW Lifecycle &amp; Dormitory · Staff Lifecycle.</li>
+          <li>Case Management (grievance/discipline) · Claims &amp; Work Injury · Reporting &amp; Analytics.</li>
+        </ul>
+        <div class="gate-line"><b>Exit gate:</b> payroll runs in <b>parallel</b> with the current process and reconciles clean for 2–3 cycles before it becomes authoritative. Statutory submissions remain human-released.</div>
+      </div>
+    </div>
+
+    <div class="phase p3"><div class="phase-head"><h3>Phase 3 · Cycles, enabling &amp; governance</h3><span class="dur">~12–16 wks</span><span class="goal">Complete the picture.</span></div>
+      <div class="phase-body">
+        <ul class="clean">
+          <li>Performance Management · Compensation &amp; Benefits · Grants &amp; Training · Licence &amp; Tender Docs.</li>
+          <li>Admin &amp; Onboarding Logistics (Assistant workspace) · Data Governance &amp; Admin Console · Policy &amp; Comms · Welfare.</li>
+        </ul>
+        <div class="gate-line"><b>Exit gate:</b> full task coverage; HRIQ becomes a back-office system of record with the portal as the working surface.</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="effort">
+    <div class="sec-head"><span class="sec-num">03 / EFFORT BY ITEM</span><h2>Estimate per build item</h2></div>
+    <p class="sec-sub">Rough effort in engineer-weeks (eng-wks), AI-assisted. <span class="new">NEW</span> = new module from the gap analysis; others are prototype modules being productionised.</p>
+    <div class="tblscroll">
+    <table class="eff">
+      <tr><th>Build item</th><th>Phase</th><th>Eng-wks</th><th>Notes / dependency</th></tr>
+      <tr><td>Foundation — infra, SSO, RBAC, audit</td><td><span class="ph p0">P0</span></td><td class="wk">4–6</td><td>Blocks everything.</td></tr>
+      <tr><td>HRIQ ingestion pipeline</td><td><span class="ph p0">P0</span></td><td class="wk">2–3</td><td>Productionise your Python scripts.</td></tr>
+      <tr><td>AI gateway (de-identify + logging)</td><td><span class="ph p0">P0</span></td><td class="wk">1–2</td><td>Used by Docs, Knowledge, Recruitment.</td></tr>
+      <tr><td>Role dashboards + app shell</td><td><span class="ph p1">P1</span></td><td class="wk">2</td><td>Depends on RBAC.</td></tr>
+      <tr><td>Compliance Monitor</td><td><span class="ph p1">P1</span></td><td class="wk">3–4</td><td>Rules engine + alerts; needs synced data.</td></tr>
+      <tr><td>Approvals / workflow engine</td><td><span class="ph p1">P1</span></td><td class="wk">2</td><td>Reused by Case Mgmt, Claims.</td></tr>
+      <tr><td>Document Generator</td><td><span class="ph p1">P1</span></td><td class="wk">2–3</td><td>Real DOCX merge + letterhead templates.</td></tr>
+      <tr><td>Knowledge Assistant</td><td><span class="ph p1">P1</span></td><td class="wk">2–3</td><td>RAG + knowledge-base curation.</td></tr>
+      <tr><td>Recruitment</td><td><span class="ph p1">P1</span></td><td class="wk">3–4</td><td>CV parsing, object store, emails.</td></tr>
+      <tr><td>Payroll &amp; Cost Control <span class="new">NEW</span></td><td><span class="ph p2">P2</span></td><td class="wk">6–8</td><td>Calc engine + heavy testing + parallel-run.</td></tr>
+      <tr><td>FW Lifecycle &amp; Dormitory <span class="new">NEW</span></td><td><span class="ph p2">P2</span></td><td class="wk">4–5</td><td>Largest lifecycle module.</td></tr>
+      <tr><td>Staff Lifecycle <span class="new">NEW</span></td><td><span class="ph p2">P2</span></td><td class="wk">3–4</td><td>Onboarding/exit, org chart.</td></tr>
+      <tr><td>Levy &amp; Waiver <span class="new">NEW</span></td><td><span class="ph p2">P2</span></td><td class="wk">2–3</td><td>Links FW ↔ Payroll.</td></tr>
+      <tr><td>Case Management <span class="new">NEW</span></td><td><span class="ph p2">P2</span></td><td class="wk">3</td><td>Reuses workflow engine.</td></tr>
+      <tr><td>Claims &amp; Work Injury <span class="new">NEW</span></td><td><span class="ph p2">P2</span></td><td class="wk">3</td><td>WICA/FWMI; MOM notification timelines.</td></tr>
+      <tr><td>Reporting &amp; Analytics <span class="new">NEW</span></td><td><span class="ph p2">P2</span></td><td class="wk">2–3</td><td>Consolidates existing data.</td></tr>
+      <tr><td>Performance Management <span class="new">NEW</span></td><td><span class="ph p3">P3</span></td><td class="wk">3</td><td>Review cycles + letters.</td></tr>
+      <tr><td>Compensation &amp; Benefits <span class="new">NEW</span></td><td><span class="ph p3">P3</span></td><td class="wk">3</td><td>Review cycle + insurance records.</td></tr>
+      <tr><td>Grants &amp; Training <span class="new">NEW</span></td><td><span class="ph p3">P3</span></td><td class="wk">2</td><td></td></tr>
+      <tr><td>BCA Licence &amp; Tender Docs <span class="new">NEW</span></td><td><span class="ph p3">P3</span></td><td class="wk">2</td><td>Doc package compilation.</td></tr>
+      <tr><td>Admin &amp; Onboarding Logistics <span class="new">NEW</span></td><td><span class="ph p3">P3</span></td><td class="wk">2–3</td><td>Assistant workspace + OCR scanning.</td></tr>
+      <tr><td>Data Governance &amp; Admin Console <span class="new">NEW</span></td><td><span class="ph p3">P3</span></td><td class="wk">2–3</td><td>RBAC admin, retention, audit viewer.</td></tr>
+      <tr><td>Policy &amp; Communications <span class="new">NEW</span></td><td><span class="ph p3">P3</span></td><td class="wk">2</td><td></td></tr>
+      <tr><td>Welfare &amp; Engagement <span class="new">NEW</span></td><td><span class="ph p3">P3</span></td><td class="wk">1</td><td>Lightweight.</td></tr>
+      <tr class="total"><td>Total</td><td></td><td class="wk">~50–65</td><td>+ UAT, training, security review (cross-cutting).</td></tr>
+    </table>
+    </div>
+  </section>
+
+  <section id="team">
+    <div class="sec-head"><span class="sec-num">04 / TEAM &amp; CAVEATS</span><h2>Team, ways of working &amp; caveats</h2></div>
+    <div class="cols">
+      <div class="card"><h4>Team</h4><ul class="clean">
+        <li><b>1–2 full-stack engineers</b> (Python/FastAPI + React), AI-assisted.</li>
+        <li><b>You</b> as product owner + compliance sign-off.</li>
+        <li>A <b>part-time security reviewer</b> for the pre-Phase-2 gate.</li>
+        <li>An <b>HR/payroll SME</b> to validate calculations during parallel-run.</li>
+      </ul></div>
+      <div class="card"><h4>Ways of working</h4><ul class="clean">
+        <li>Ship a usable slice each phase — value lands early (Phase 1), not at the end.</li>
+        <li>Automated tests mandatory for all payroll/levy calculations.</li>
+        <li>Human-in-the-loop release gates stay throughout.</li>
+        <li>No real personal data in Dev; masked data in Staging.</li>
+      </ul></div>
+      <div class="card"><h4>What could move the numbers</h4><ul class="clean">
+        <li><b>HRIQ access</b> — if batch export is awkward, ingestion grows.</li>
+        <li><b>Payroll complexity</b> — many pay components/edge cases add weeks.</li>
+        <li><b>Regulatory verification</b> — rules must be confirmed, not assumed.</li>
+        <li><b>Scope creep</b> — each "small extra" per module compounds.</li>
+      </ul></div>
+    </div>
+    <div class="callout" style="margin-top:16px"><span class="h">Recommended first move</span>Don't commit to the whole programme up front. Fund <b>Phase 0 + Phase 1</b> first (~16–24 eng-wks / ~4–6 months for a small team). That delivers a genuinely useful HR-only portal — monitoring, drafting, knowledge, hiring — proves the architecture and the team, and lets you decide on Phase 2 with real evidence rather than a paper plan.</div>
+  </section>
+
+  <footer>
+    Estimates are rough order-of-magnitude for planning, not a fixed quote — they depend on final scope, HRIQ access, team experience and regulatory verification. Phases align with the Requirements Specification and the modules from the Coverage &amp; Gap Analysis. Calendar assumes a 2-person team with parallel workstreams in Phases 2–3.
+  </footer>
+
+</div>

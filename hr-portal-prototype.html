@@ -1,0 +1,1629 @@
+<meta charset="utf-8">
+<title>HR Portal — Phase 1 Prototype</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  /* ============ Design system — "light workspace" ============
+     Modern SaaS shell: floating sidebar, translucent header,
+     soft diffuse shadows, cobalt accent, segmented tabs.
+     Semantic colours unchanged: green=ok, amber=watch, red=critical. */
+  :root{
+    --ink:#171c2b;--ink-2:#232a3d;--slate:#4a5468;--slate-2:#6d7789;--slate-3:#98a1b3;
+    --line:#e3e7ee;--line-2:#edf0f5;--bg:#f4f5f9;--panel:#ffffff;--panel-2:#f6f7fb;
+    --steel:#3554e0;--steel-2:#2b46c4;--steel-soft:#eaeefe;
+    --crit:#c73a3f;--crit-bg:#fdecec;--warn:#a96b06;--warn-bg:#fdf2dc;
+    --ok:#178254;--ok-bg:#e2f5eb;--info:#3554e0;--info-bg:#eaeefe;
+    --mono:ui-monospace,"Cascadia Code","Consolas","SF Mono",Menlo,monospace;
+    --sans:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+    --shadow-sm:0 1px 2px rgba(23,28,43,.05),0 6px 20px rgba(23,28,43,.06);
+    --shadow-md:0 2px 6px rgba(23,28,43,.06),0 16px 40px rgba(23,28,43,.11);
+    --radius:16px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased;
+    background:
+      radial-gradient(900px 420px at 92% -10%,rgba(53,84,224,.07),transparent 60%),
+      radial-gradient(720px 400px at -8% 28%,rgba(21,150,170,.05),transparent 60%),
+      var(--bg);
+    background-attachment:fixed;}
+  button{font-family:inherit;cursor:pointer;}
+  :focus-visible{outline:2px solid var(--steel);outline-offset:2px;border-radius:4px;}
+
+  /* ---- header — slim, translucent, sticky ---- */
+  .topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;padding:0 22px;height:62px;
+    background:rgba(255,255,255,.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    border-bottom:1px solid var(--line);}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px;letter-spacing:-.01em;color:var(--ink);}
+  .brand .logo{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,#4a63f0,#2b46c4);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 3px 10px rgba(43,70,196,.35);}
+  .proto-badge{font-family:var(--mono);font-size:10px;letter-spacing:.08em;background:var(--warn-bg);color:#7a4e06;border:1px solid #eed9ab;padding:3px 9px;border-radius:999px;text-transform:uppercase;}
+  .topbar .spacer{flex:1;}
+  .asof{font-family:var(--mono);font-size:11px;color:var(--slate-2);background:var(--panel-2);border:1px solid var(--line-2);padding:4px 10px;border-radius:999px;}
+  .userbox{display:flex;align-items:center;gap:9px;}
+  .userbox label{font-size:10.5px;color:var(--slate-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;}
+  .userbox select{font-family:inherit;font-size:13px;background:#fff;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:7px 10px;transition:border-color .14s,box-shadow .14s;}
+  .userbox select:focus{border-color:var(--steel);outline:none;box-shadow:0 0 0 3px rgba(53,84,224,.14);}
+  .avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#4a63f0,#2b46c4);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;box-shadow:0 2px 6px rgba(43,70,196,.35);}
+
+  /* ---- shell — floating sidebar over a soft canvas ---- */
+  .shell{display:grid;grid-template-columns:242px 1fr;gap:22px;padding:22px 24px;align-items:start;}
+  .side{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-sm);
+    padding:14px 12px;display:flex;flex-direction:column;gap:4px;position:sticky;top:84px;
+    min-height:calc(100vh - 106px);max-height:calc(100vh - 106px);overflow:auto;}
+  .side .scope{font-size:11px;color:var(--slate-2);background:linear-gradient(180deg,var(--steel-soft),#f7f9ff);border:1px solid #dfe6fd;border-radius:12px;padding:10px 12px;margin-bottom:10px;}
+  .side .scope b{display:block;color:var(--ink);font-size:12.5px;margin-bottom:2px;}
+  .navitem{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;font-size:13.5px;font-weight:500;color:var(--slate);border:none;background:none;width:100%;text-align:left;transition:background .14s,color .14s;}
+  .navitem .ico{width:18px;text-align:center;opacity:.75;}
+  .navitem:hover{background:var(--panel-2);color:var(--ink);}
+  .navitem.active{background:var(--steel-soft);color:var(--steel);font-weight:600;}
+  .navitem .badge{margin-left:auto;font-family:var(--mono);font-size:10px;background:var(--crit);color:#fff;border-radius:10px;padding:1px 6px;min-width:18px;text-align:center;}
+  .side .foot{margin-top:auto;font-size:10.5px;color:var(--slate-3);padding:12px 11px 4px;line-height:1.45;border-top:1px solid var(--line-2);}
+  .main{min-width:0;padding:0 2px 60px;overflow-x:hidden;}
+
+  /* ---- page heads ---- */
+  .page-head{margin-bottom:20px;}
+  .page-head h1{font-size:24px;margin:0 0 4px;letter-spacing:-.02em;font-weight:700;}
+  .page-head p{margin:0;color:var(--slate-2);font-size:13.5px;}
+  .page-head.hero{background:linear-gradient(118deg,#2740b8,#3554e0 55%,#4c74ef);border-radius:18px;padding:26px 28px;box-shadow:0 14px 34px rgba(43,70,196,.24);position:relative;overflow:hidden;}
+  .page-head.hero::after{content:"";position:absolute;right:-70px;top:-90px;width:280px;height:280px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.16),transparent 70%);pointer-events:none;}
+  .page-head.hero h1{color:#fff;font-size:26px;}
+  .page-head.hero p{color:#ccd6fb;}
+
+  /* ---- cards & KPI tiles ---- */
+  .grid{display:grid;gap:16px;}
+  .g-kpi{grid-template-columns:repeat(auto-fit,minmax(190px,1fr));}
+  .g-2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr));}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow-sm);}
+  .card h3{margin:0 0 12px;font-size:14.5px;font-weight:600;display:flex;align-items:center;gap:8px;}
+  .card h3 .count{font-family:var(--mono);font-size:11px;color:var(--slate-2);font-weight:400;}
+  .card.tile{position:relative;overflow:hidden;}
+  .card.tile::after{content:"";position:absolute;right:-36px;top:-36px;width:112px;height:112px;border-radius:50%;border:14px solid var(--line-2);pointer-events:none;}
+  .card.tile.crit::after{border-color:var(--crit-bg);}
+  .card.tile.warn::after{border-color:var(--warn-bg);}
+  .card.tile.ok::after{border-color:var(--ok-bg);}
+  .card.tile.info::after{border-color:var(--info-bg);}
+  .tile .lab{font-size:11px;color:var(--slate-2);text-transform:uppercase;letter-spacing:.07em;font-family:var(--mono);display:flex;align-items:center;gap:7px;}
+  .tile .lab::before{content:"";width:8px;height:8px;border-radius:3px;background:var(--slate-3);flex:0 0 auto;}
+  .tile.crit .lab::before{background:var(--crit);}
+  .tile.warn .lab::before{background:var(--warn);}
+  .tile.ok .lab::before{background:var(--ok);}
+  .tile.info .lab::before{background:var(--info);}
+  .tile .val{font-size:30px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin-top:8px;}
+  .tile .sub{font-size:12.5px;color:var(--slate-2);margin-top:2px;}
+  .tile.crit .val{color:var(--crit);}
+  .tile.warn .val{color:var(--warn);}
+  .tile.ok .val{color:var(--ok);}
+
+  /* ---- status pills ---- */
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:600;font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em;padding:3px 10px;border-radius:999px;border:1px solid transparent;white-space:nowrap;}
+  .pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;flex:0 0 auto;}
+  .pill.crit{background:var(--crit-bg);color:var(--crit);border-color:#f4cfcf;}
+  .pill.warn{background:var(--warn-bg);color:var(--warn);border-color:#eed9ab;}
+  .pill.ok{background:var(--ok-bg);color:var(--ok);border-color:#bfe6d2;}
+  .pill.info{background:var(--info-bg);color:var(--info);border-color:#d7defb;}
+
+  /* ---- alert rows ---- */
+  .alert{display:grid;grid-template-columns:6px 1fr auto;gap:12px;align-items:center;padding:12px 10px;border-top:1px solid var(--line-2);border-radius:12px;transition:background .12s;}
+  .alert:first-of-type{border-top:none;}
+  .alert:hover{background:var(--panel-2);}
+  .alert .stripe{width:6px;height:100%;min-height:36px;border-radius:4px;background:var(--slate-3);}
+  .alert.crit .stripe{background:var(--crit);}
+  .alert.warn .stripe{background:var(--warn);}
+  .alert.info .stripe{background:var(--info);}
+  .alert .at{font-size:14px;color:var(--ink);font-weight:600;}
+  .alert .ad{font-size:12px;color:var(--slate-2);margin-top:1px;}
+  .alert .meta{text-align:right;font-size:11px;color:var(--slate-2);font-family:var(--mono);}
+  .alert .meta .own{color:var(--ink-2);font-weight:600;}
+
+  /* ---- segmented tabs ---- */
+  .tabs{display:flex;flex-wrap:wrap;gap:4px;background:#eceef4;border:1px solid var(--line-2);padding:4px;border-radius:12px;margin-bottom:16px;width:fit-content;max-width:100%;}
+  .tab{padding:8px 14px;border:none;background:none;font-size:13px;font-weight:500;color:var(--slate);border-radius:9px;margin-bottom:0;transition:background .12s,color .12s,box-shadow .12s;}
+  .tab:hover{color:var(--ink);}
+  .tab.active{background:#fff;color:var(--steel);font-weight:600;box-shadow:0 1px 3px rgba(23,28,43,.12);}
+
+  /* ---- data tables ---- */
+  .tblscroll{overflow-x:auto;border:1px solid var(--line);border-radius:14px;background:#fff;}
+  .tblscroll::-webkit-scrollbar{height:8px;width:8px;}
+  .tblscroll::-webkit-scrollbar-thumb{background:#c9d1dc;border-radius:4px;}
+  .tblscroll::-webkit-scrollbar-track{background:transparent;}
+  table.dt{width:100%;border-collapse:collapse;font-size:13.5px;}
+  table.dt th{background:var(--panel-2);text-align:left;padding:10px 14px;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--slate-2);font-family:var(--mono);border-bottom:1px solid var(--line);white-space:nowrap;}
+  table.dt td{padding:10px 14px;border-bottom:1px solid var(--line-2);}
+  table.dt tr:last-child td{border-bottom:none;}
+  table.dt tr:hover td{background:#f5f7fc;}
+  table.dt td.mono{font-family:var(--mono);font-size:12.5px;}
+  table.dt .num{text-align:right;font-variant-numeric:tabular-nums;}
+
+  /* ---- gauge ---- */
+  .gauge-wrap{display:flex;gap:20px;align-items:center;flex-wrap:wrap;}
+  .gauge{--p:0;width:132px;height:132px;border-radius:50%;flex:0 0 auto;
+    background:conic-gradient(var(--gc,var(--ok)) calc(var(--p)*1%),var(--line-2) 0);display:flex;align-items:center;justify-content:center;
+    box-shadow:inset 0 0 0 1px var(--line-2),0 6px 18px rgba(23,28,43,.10);}
+  .gauge .inner{width:96px;height:96px;border-radius:50%;background:var(--panel);display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(23,28,43,.08);}
+  .gauge .inner b{font-size:24px;font-variant-numeric:tabular-nums;}
+  .gauge .inner span{font-size:10px;color:var(--slate-2);text-transform:uppercase;font-family:var(--mono);letter-spacing:.05em;}
+
+  /* ---- document generator ---- */
+  .doc-grid{display:grid;grid-template-columns:300px 1fr;gap:18px;align-items:start;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:11px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em;color:var(--slate-2);margin-bottom:5px;}
+  .field select,.field input,.field textarea{width:100%;font-family:inherit;font-size:14px;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--panel);transition:border-color .14s,box-shadow .14s;}
+  .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--steel);outline:none;box-shadow:0 0 0 3px rgba(53,84,224,.13);}
+  .btn{background:var(--steel);color:#fff;border:none;border-radius:10px;padding:10px 16px;font-size:13.5px;font-weight:600;box-shadow:0 1px 2px rgba(43,70,196,.30),0 6px 16px rgba(43,70,196,.20);transition:background .13s,transform .13s,box-shadow .13s;}
+  .btn:hover{background:var(--steel-2);transform:translateY(-1px);box-shadow:0 3px 8px rgba(43,70,196,.30);}
+  .btn:active{transform:translateY(0);}
+  .btn.ghost{background:#fff;color:var(--ink-2);border:1px solid var(--line);box-shadow:none;}
+  .btn.ghost:hover{background:#fff;border-color:var(--steel);color:var(--steel);transform:translateY(-1px);box-shadow:var(--shadow-sm);}
+  .btn.ok{background:var(--ok);box-shadow:0 1px 2px rgba(23,130,84,.3),0 6px 16px rgba(23,130,84,.18);}
+  .btn.ok:hover{background:#136b45;}
+  .btn.warn-b{background:#fff;color:var(--crit);border:1px solid #f0c9c9;box-shadow:none;}
+  .btn.warn-b:hover{background:var(--crit-bg);transform:translateY(-1px);}
+  .btn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+
+  .sandbox{background:var(--panel-2);border:1px dashed #d5dae4;border-radius:12px;padding:14px;margin-bottom:14px;}
+  .sandbox .sh{font-size:10.5px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--slate-2);margin-bottom:10px;}
+  .sbstep{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:13px;color:var(--slate-3);transition:color .3s;}
+  .sbstep .dot{width:16px;height:16px;border-radius:50%;border:2px solid var(--line);flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff;}
+  .sbstep.done{color:var(--ink-2);}
+  .sbstep.done .dot{background:linear-gradient(135deg,#22a06b,#157a4e);border-color:transparent;box-shadow:0 1px 3px rgba(21,122,78,.35);}
+  .sbstep.active{color:var(--steel);}
+  .sbstep.active .dot{border-color:var(--steel);}
+  .sbstep .zone{margin-left:auto;font-family:var(--mono);font-size:9.5px;padding:1px 7px;border-radius:999px;}
+  .sbstep .zone.in{background:var(--ok-bg);color:var(--ok);}
+  .sbstep .zone.out{background:var(--crit-bg);color:var(--crit);}
+
+  /* ---- generated letter (deliberately paper-like, unchanged) ---- */
+  .doc-page{background:#fff;border:1px solid var(--line);border-radius:4px;max-width:740px;margin:0 auto;padding:50px 58px;font-family:"Times New Roman",Georgia,serif;color:#111;font-size:15px;line-height:1.55;box-shadow:0 3px 10px rgba(23,28,43,.08),0 20px 48px rgba(23,28,43,.13);}
+  .doc-page p{margin:0 0 12px;}
+  .lh-head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;border-bottom:2px solid #1f3a57;padding-bottom:14px;margin-bottom:22px;}
+  .lh-logo{flex:0 0 auto;border:1px dashed #c4ccd4;padding:14px 18px;color:#9aa6b2;font-family:var(--sans);font-size:10px;text-align:center;line-height:1.3;letter-spacing:.04em;}
+  .lh-co{text-align:right;font-size:12px;color:#333;line-height:1.45;}
+  .lh-co b{font-size:17px;color:#1f3a57;font-family:var(--sans);letter-spacing:-.01em;}
+  .lh-row{display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;}
+  .lh-to{margin:16px 0;font-size:14px;line-height:1.45;}
+  .lh-subj{font-weight:700;text-decoration:underline;margin:16px 0;letter-spacing:.02em;}
+  .lh-sign{margin-top:34px;font-size:14px;}
+  .lh-sign .line{margin-top:34px;border-top:1px solid #333;width:240px;padding-top:4px;font-size:13px;}
+  @media print{ body *{visibility:hidden;} #docPage,#docPage *{visibility:visible;} #docPage{position:absolute;left:0;top:0;width:100%;border:none;box-shadow:none;margin:0;} }
+
+  .letter{background:#fff;border:1px solid var(--line);border-radius:12px;padding:26px 30px;font-size:13.5px;line-height:1.7;min-height:200px;}
+  .letter p{margin:0 0 11px;}
+  .ai-tag{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-family:var(--mono);background:var(--warn-bg);color:#7a4e06;border:1px solid #eed9ab;padding:4px 10px;border-radius:999px;margin-bottom:14px;}
+  .letter .ai-tag{margin-bottom:16px;}
+  .gate{display:flex;gap:10px;align-items:center;margin-top:16px;padding-top:16px;border-top:1px dashed var(--line);flex-wrap:wrap;}
+  .gate .gl{font-size:12px;color:var(--slate-2);margin-right:auto;}
+  .redacted{background:#fdeccb;color:#7a4e06;padding:0 4px;border-radius:3px;font-family:var(--mono);font-size:.9em;}
+  .placeholder{color:var(--slate-3);font-size:13.5px;text-align:center;padding:60px 20px;}
+
+  /* ---- knowledge chat ---- */
+  .chat{display:flex;flex-direction:column;gap:12px;max-width:760px;}
+  .msg{padding:12px 16px;border-radius:14px;font-size:14px;max-width:88%;}
+  .msg.u{background:linear-gradient(135deg,#3d5ce6,#2b46c4);color:#fff;align-self:flex-end;border-bottom-right-radius:4px;box-shadow:0 3px 10px rgba(43,70,196,.25);}
+  .msg.a{background:var(--panel);border:1px solid var(--line);align-self:flex-start;border-bottom-left-radius:4px;box-shadow:var(--shadow-sm);}
+  .msg.a .src{margin-top:9px;display:flex;gap:6px;flex-wrap:wrap;}
+  .src .chip{font-size:10.5px;font-family:var(--mono);background:var(--steel-soft);color:var(--steel);border:1px solid #d7defb;border-radius:7px;padding:2px 8px;}
+  .suggest{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;}
+  .suggest button{font-size:12.5px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:7px 14px;color:var(--ink-2);transition:border-color .12s,color .12s,box-shadow .12s;}
+  .suggest button:hover{border-color:var(--steel);color:var(--steel);box-shadow:var(--shadow-sm);}
+  .chat-input{display:flex;gap:8px;margin-top:14px;max-width:760px;}
+  .chat-input input{flex:1;font-family:inherit;font-size:14px;padding:11px 14px;border:1px solid var(--line);border-radius:12px;transition:border-color .14s,box-shadow .14s;}
+  .chat-input input:focus{border-color:var(--steel);outline:none;box-shadow:0 0 0 3px rgba(53,84,224,.13);}
+
+  /* ---- utilities & responsive ---- */
+  .hidden{display:none!important;}
+  .note{font-size:12px;color:var(--slate-2);margin-top:14px;font-style:italic;}
+  /* tablet — sidebar becomes a horizontal pill bar */
+  @media(max-width:900px){
+    .shell{grid-template-columns:1fr;padding:14px;gap:14px;}
+    .side{position:static;min-height:0;max-height:none;flex-direction:row;flex-wrap:wrap;padding:8px;gap:4px;}
+    .side .scope,.side .foot{display:none;}
+    .navitem{width:auto;padding:8px 12px;font-size:13px;}
+    .doc-grid{grid-template-columns:1fr;}
+    .asof{display:none;}
+    .topbar{padding:0 14px;gap:10px;}
+  }
+  /* phone — compact header, stacked rows, tighter type */
+  @media(max-width:640px){
+    body{font-size:14.5px;}
+    .topbar{height:56px;}
+    .userbox label{display:none;}
+    .userbox select{max-width:150px;font-size:12.5px;padding:6px 8px;}
+    .proto-badge{display:none;}
+    .shell{padding:10px;gap:10px;}
+    .side{border-radius:12px;}
+    .navitem{padding:8px 10px;gap:7px;}
+    .main{padding-bottom:40px;}
+    .page-head.hero{padding:18px 16px;border-radius:14px;}
+    .page-head.hero h1{font-size:21px;}
+    .page-head h1{font-size:20px;}
+    .card{padding:14px 14px;border-radius:13px;}
+    .tile .val{font-size:26px;}
+    /* alert rows: owner/due wraps beneath the text instead of squeezing */
+    .alert{grid-template-columns:6px 1fr;padding:11px 8px;}
+    .alert .meta{grid-column:2;text-align:left;display:flex;gap:10px;flex-wrap:wrap;margin-top:2px;}
+    .gauge{width:110px;height:110px;}
+    .gauge .inner{width:80px;height:80px;}
+    .gauge .inner b{font-size:19px;}
+    .tabs{width:100%;}
+    .tab{flex:1;text-align:center;padding:8px 8px;font-size:12px;}
+    .doc-page{padding:26px 20px;font-size:14px;}
+    .lh-head{flex-direction:column;gap:10px;}
+    .lh-co{text-align:left;}
+    .gate{gap:8px;}
+    .gate .gl{flex-basis:100%;margin-right:0;}
+    .chat .msg{max-width:96%;}
+  }
+  /* ---- agentic workflow designer ---- */
+  .wf-wrap{display:grid;grid-template-columns:200px 1fr;gap:14px;align-items:start;}
+  .wf-palette{padding:12px;position:sticky;top:84px;max-height:calc(100vh - 120px);overflow:auto;}
+  .pal-cat{font-family:var(--mono);font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--slate-3);margin:10px 0 4px;}
+  .pal-cat:first-child{margin-top:0;}
+  .pal-item{display:flex;gap:8px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:9px;margin:5px 0;background:#fff;cursor:grab;font-size:12px;user-select:none;touch-action:none;transition:border-color .12s,box-shadow .12s;}
+  .pal-item:hover{border-color:var(--steel);box-shadow:var(--shadow-sm);}
+  .pal-dot{width:9px;height:9px;border-radius:3px;flex:0 0 auto;}
+  .wf-canvas-outer{border:1px solid var(--line);border-radius:14px;background:#fff;overflow:auto;height:540px;box-shadow:var(--shadow-sm);}
+  .wf-canvas{position:relative;width:1800px;height:640px;background-image:radial-gradient(circle,#e2e7ee 1px,transparent 1px);background-size:22px 22px;touch-action:none;}
+  .wf-edges{position:absolute;inset:0;width:100%;height:100%;}
+  .wf-node{position:absolute;width:170px;background:#fff;border:1.5px solid var(--line);border-radius:11px;box-shadow:var(--shadow-sm);user-select:none;touch-action:none;}
+  .wf-node .nh{display:flex;align-items:center;gap:7px;padding:8px 10px 4px;font-size:12.5px;font-weight:600;cursor:grab;}
+  .wf-node .nd{font-size:10px;color:var(--slate-2);padding:0 10px 8px;line-height:1.35;}
+  .wf-node.sel{border-color:var(--steel);box-shadow:0 0 0 3px rgba(53,84,224,.14);}
+  .wf-node.exec{border-color:var(--warn);box-shadow:0 0 0 3px rgba(169,107,6,.22);}
+  .wf-node.done-n{border-color:var(--ok);}
+  .port{position:absolute;width:13px;height:13px;border-radius:50%;background:#fff;border:2.5px solid var(--slate-3);cursor:crosshair;touch-action:none;}
+  .port.in{left:-7px;top:50%;transform:translateY(-50%);}
+  .port.out{right:-7px;top:50%;transform:translateY(-50%);border-color:var(--steel);}
+  .port.out.yes{top:35%;border-color:var(--ok);}
+  .port.out.no{top:72%;border-color:var(--crit);}
+  .port:hover{background:var(--steel-soft);}
+  .wf-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;}
+  .wf-log{max-height:250px;overflow:auto;}
+  .wf-log .le{font-size:12.5px;padding:6px 9px;border-radius:8px;background:var(--panel-2);margin:4px 0;}
+  .wf-log .le.h{background:var(--ok-bg);}
+  .lint-item{display:flex;gap:8px;font-size:12.5px;padding:7px 9px;border-radius:8px;margin:4px 0;align-items:flex-start;}
+  .lint-item.err{background:var(--crit-bg);color:var(--crit);}
+  .lint-item.warn{background:var(--warn-bg);color:var(--warn);}
+  .lint-item.okk{background:var(--ok-bg);color:var(--ok);}
+  @media(max-width:900px){.wf-wrap{grid-template-columns:1fr;}.wf-palette{position:static;max-height:170px;}.wf-canvas-outer{height:430px;}}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;}}
+</style>
+
+<div class="topbar">
+  <div class="brand"><span class="logo">🗂️</span> HR Portal</div>
+  <span class="proto-badge">Prototype · synthetic data</span>
+  <div class="spacer"></div>
+  <span class="asof" id="asof">Data as of —</span>
+  <div class="userbox">
+    <label for="roleSel">Viewing as</label>
+    <select id="roleSel" aria-label="Switch role">
+      <option value="head">Head of HR</option>
+      <option value="manager" selected>HR Manager</option>
+      <option value="payroll">Executive — Payroll</option>
+      <option value="fw">Executive — Foreign Workers</option>
+      <option value="staff">Executive — Staff</option>
+      <option value="assistant">HR Assistant</option>
+    </select>
+    <div class="avatar" id="avatar">HM</div>
+  </div>
+</div>
+
+<div class="shell">
+  <nav class="side">
+    <div class="scope" id="scope"></div>
+    <div id="nav"></div>
+    <div class="foot">Phase 1 scope: read-only dashboards, compliance monitor, AI document drafting &amp; knowledge assistant. No payroll or statutory submission in this phase.</div>
+  </nav>
+  <main class="main" id="main"></main>
+</div>
+
+<script>
+/* =================== synthetic data =================== */
+const ASOF = "27 Jun 2026, 02:10 (nightly sync)";
+
+const ROLES = {
+  head:     {name:"Head of HR", init:"HH", scope:"Full read access · highest-tier approvals", nav:["dashboard","compliance","recruitment","documents","knowledge","approvals"]},
+  manager:  {name:"HR Manager", init:"HM", scope:"Cross-functional read · department approvals · PDPA & AI governance", nav:["dashboard","compliance","recruitment","documents","knowledge","approvals"]},
+  payroll:  {name:"Executive — Payroll", init:"PY", scope:"Payroll, levy, OT & cost data · insurance records", nav:["dashboard","compliance","documents","knowledge"]},
+  fw:       {name:"Executive — Foreign Workers", init:"FW", scope:"Worker data, permits, dormitory, DRC / IPA", nav:["dashboard","compliance","documents","knowledge"]},
+  staff:    {name:"Executive — Staff", init:"ST", scope:"Staff data, recruitment, org chart", nav:["dashboard","compliance","recruitment","documents","knowledge"]},
+  assistant:{name:"HR Assistant", init:"HA", scope:"Operational trackers & data entry · no approval rights", nav:["dashboard","recruitment","documents","knowledge"]},
+};
+const NAVMETA = {
+  dashboard:{ico:"▢",label:"Dashboard"},
+  compliance:{ico:"⚑",label:"Compliance Monitor"},
+  recruitment:{ico:"👥",label:"Recruitment"},
+  documents:{ico:"✎",label:"Documents"},
+  knowledge:{ico:"?",label:"Knowledge Assistant"},
+  approvals:{ico:"✓",label:"Approvals"},
+};
+// HR-managed hirer list (editable in the Recruitment module)
+let HIRERS=[
+  {name:"Eng. Lee", dept:"Operations", email:"lee.eng@company.com"},
+  {name:"Ms Chua", dept:"Commercial", email:"chua@company.com"},
+  {name:"Mr Goh", dept:"EHS / Safety", email:"goh.wsh@company.com"},
+];
+// AI's suggested hirer by role — only pre-selects the dropdown; HR confirms or changes
+const ROLE_HIRER={"Site Engineer":"Eng. Lee","QS Executive":"Ms Chua","Project Coordinator":"Eng. Lee","Safety Coordinator":"Mr Goh"};
+let CANDIDATES=[
+  {id:"C-501",name:"Daniel Lim",role:"Site Engineer",exp:"6 yrs · BCA projects",stage:"screening"},
+  {id:"C-502",name:"Priya Nair",role:"QS Executive",exp:"4 yrs · cost management",stage:"screening"},
+  {id:"C-503",name:"Marcus Tan",role:"Project Coordinator",exp:"3 yrs",stage:"hirer",hirer:"Eng. Lee",hirerEmail:"lee.eng@company.com",score:83},
+  {id:"C-504",name:"Sofia Rahman",role:"Site Engineer",exp:"8 yrs · structural",stage:"interview",hirer:"Eng. Lee",hirerEmail:"lee.eng@company.com",score:91,invited:true},
+  {id:"C-505",name:"Wei Jie Ong",role:"Safety Coordinator",exp:"5 yrs · WSH",stage:"offer",hirer:"Mr Goh",hirerEmail:"goh.wsh@company.com",score:88,offerSent:false},
+  {id:"C-506",name:"Anita Devi",role:"QS Executive",exp:"7 yrs",stage:"hired",hirer:"Ms Chua",hirerEmail:"chua@company.com",score:90,letterRecorded:"20 Jun 2026"},
+];
+
+const ALERTS = [
+  {sev:"crit", t:"Work permit expiring in 9 days", d:"Worker W-2041 · Md Rahman — renewal not yet initiated", own:"Exec (FW)", due:"Due 06 Jul", tags:["compliance","fw"]},
+  {sev:"crit", t:"DRC headroom below 3%", d:"Adding any quota-bearing hire risks breach on Sector quota", own:"Exec (FW)", due:"Monitor", tags:["compliance","fw"]},
+  {sev:"warn", t:"OT exceeds 72-hr monthly cap (2 workers)", d:"Site B · approaching Part IV statutory limit", own:"Exec (Payroll)", due:"This week", tags:["compliance","payroll"]},
+  {sev:"warn", t:"3 passports expire within 60 days", d:"Renewal reminders auto-sent to Assistant", own:"HR Assistant", due:"Due 26 Aug", tags:["compliance","fw"]},
+  {sev:"warn", t:"FCF advertising window closes in 2 days", d:"Site Engineer role · no offers may be made before 29 Jun", own:"Exec (Staff)", due:"Due 29 Jun", tags:["compliance","staff"]},
+  {sev:"info", t:"5 records due for PDPA retention purge", d:"Ex-employees past retention window · pending review", own:"HR Manager", due:"Review", tags:["compliance"]},
+  {sev:"info", t:"BCA A1 financial grading — healthy", d:"Net worth & paid-up capital above threshold", own:"HR Manager", due:"OK", tags:["compliance"]},
+];
+
+const TIERS={manager:{label:"HR Manager",rank:1},head:{label:"Head of HR",rank:2},director:{label:"Director",rank:3}};
+function roleRank(r){ return r==="head"?2:(r==="manager"?1:0); }
+let APPROVALS=[
+  {id:"AP-1",title:"Corrective action — DRC headroom risk",detail:"Pause 2 quota-bearing requisitions",who:"Exec (FW)",tier:"manager",impact:"Operational",status:"pending"},
+  {id:"AP-2",title:"Off-cycle payout — disputed OT computation",detail:"Site B · maker-checker exception",who:"Exec (Payroll)",tier:"manager",impact:"$1,240",status:"pending"},
+  {id:"AP-3",title:"Org chart update — cost-centre re-tag",detail:"Awaiting publication approval",who:"Exec (Staff)",tier:"manager",impact:"—",status:"pending"},
+  {id:"AP-4",title:"PDPA purge — 5 ex-employee records",detail:"Past retention window · confirm purge",who:"System",tier:"manager",impact:"Compliance",status:"pending"},
+  {id:"AP-5",title:"Settlement package — worker WICA claim",detail:"Compensation per DOA routing",who:"Exec (FW)",tier:"head",impact:"$18,500",status:"pending"},
+  {id:"AP-6",title:"Retrenchment classification — 3 roles",detail:"Escalated disciplinary / retrenchment review",who:"HR Manager",tier:"head",impact:"People risk",status:"pending"},
+  {id:"AP-7",title:"Annual salary & bonus envelope",detail:"Consolidated review proposal",who:"HR Manager",tier:"director",impact:"$420k",status:"pending"},
+];
+
+const PERMITS = [
+  {id:"W-2041", name:"Md Rahman", type:"R2", permit:"06 Jul 2026", passport:"14 Mar 2027", status:"At work", flag:"crit"},
+  {id:"W-1888", name:"A. Kumar", type:"R1", permit:"22 Jul 2026", passport:"03 Aug 2026", status:"At work", flag:"warn"},
+  {id:"W-2199", name:"Zhang Wei", type:"R2", permit:"19 Aug 2026", passport:"30 Jul 2026", status:"On leave", flag:"warn"},
+  {id:"W-2310", name:"S. Hossain", type:"R2", permit:"11 Oct 2026", passport:"22 Aug 2026", status:"At work", flag:"warn"},
+  {id:"W-1750", name:"R. Suresh", type:"R1", permit:"03 Dec 2026", passport:"19 Jan 2028", status:"At work", flag:"ok"},
+  {id:"W-2402", name:"Le Van Minh", type:"R2", permit:"28 Feb 2027", passport:"06 Jun 2027", status:"On MC", flag:"ok"},
+];
+const OT = [
+  {id:"W-2041", name:"Md Rahman", site:"Site B", hrs:71.5, cap:72, status:"warn"},
+  {id:"W-2199", name:"Zhang Wei", site:"Site B", hrs:73.0, cap:72, status:"crit"},
+  {id:"W-2310", name:"S. Hossain", site:"Site A", hrs:64.0, cap:72, status:"ok"},
+  {id:"W-1888", name:"A. Kumar", site:"Site C", hrs:58.5, cap:72, status:"ok"},
+];
+const FCF = [
+  {role:"Site Engineer", pass:"EP", posted:"15 Jun 2026", days:12, ok:false},
+  {role:"Project Coordinator", pass:"S Pass", posted:"09 Jun 2026", days:18, ok:true},
+  {role:"QS Executive", pass:"EP", posted:"02 Jun 2026", days:25, ok:true},
+];
+const EMPLOYEES = [
+  {id:"S-104", name:"Tan Wei Ming", role:"Site Supervisor", bond:"$8,000", bondMonths:"24 months", incr:"4.5%", dept:"Operations"},
+  {id:"S-118", name:"Nurul Aisyah", role:"QS Executive", bond:"$6,500", bondMonths:"18 months", incr:"5.0%", dept:"Commercial"},
+  {id:"S-090", name:"Rajesh Pillai", role:"Project Coordinator", bond:"$5,000", bondMonths:"12 months", incr:"3.5%", dept:"Operations"},
+];
+const TEMPLATES = {
+  bond:{label:"Training Bond Letter", body:(e)=>[
+    `This letter confirms the training bond agreement between the Company and ${e.NAME} (Employee ID ${e.ID}), ${e.ROLE}.`,
+    `In consideration of training sponsored by the Company, you agree to serve a minimum bond period of ${e.BONDMONTHS}, with a bond sum of ${e.BOND}.`,
+    `Should employment cease before completion of the bond period, the outstanding bond liability will be calculated on a pro-rated basis in accordance with Company policy.`]},
+  increment:{label:"Salary Increment Letter", body:(e)=>[
+    `We are pleased to inform you, ${e.NAME} (${e.ID}), of a salary increment of ${e.INCR}, effective the next payroll cycle.`,
+    `This adjustment reflects your performance as ${e.ROLE} and follows the annual review. Your revised package will be reflected in your next payslip.`,
+    `Thank you for your continued contribution to the ${e.DEPT} team.`]},
+  warning:{label:"Written Warning (template)", body:(e)=>[
+    `This letter serves as a formal written warning to ${e.NAME} (${e.ID}), ${e.ROLE}, following the documented incident under review.`,
+    `You are expected to demonstrate immediate and sustained improvement. A copy of this warning will be retained in your personnel file in line with policy.`,
+    `This is a draft for HR review under the disciplinary framework (incident → fact-finding → written warning). Final issuance requires HR Manager approval.`]},
+  employment:{label:"Employment Letter", body:(e)=>[
+    `We are pleased to confirm the offer of employment to ${e.NAME} (Employee ID ${e.ID}) for the position of ${e.ROLE} in the ${e.DEPT} department.`,
+    `Your employment is subject to the terms and conditions set out in the Company handbook, including probation, notice period, and the prevailing statutory provisions under the Employment Act.`,
+    `Please sign and return a copy of this letter to confirm your acceptance. Upon signing, this letter will be recorded against your personnel file.`]},
+};
+const KB_SOURCES=["Employment Act","EFMA","MOM circulars","CPF Act","BCA licence conditions","PDPA","Internal SOPs","DOA matrix"];
+const KB = [
+  {cat:"Recruitment", q:"How long must we advertise an EP role under FCF before making an offer?",
+   a:"Under the Fair Consideration Framework, Employment Pass and S Pass roles must be advertised on MyCareersFuture for a minimum of 14 consecutive days, and no job offer may be made during that mandatory advertising window.",
+   src:["MOM · Fair Consideration Framework","Internal SOP · Recruitment"]},
+  {cat:"Recruitment", q:"How long must interview and job-offer records be kept?",
+   a:"Retain interview and job-offer decision records for at least one year, to support defensibility against discriminatory-hiring complaints in line with MOM guidance.",
+   src:["MOM · Fair employment guidance","Internal SOP · Recruitment"]},
+  {cat:"Employment Act", q:"What is the overtime cap under Part IV of the Employment Act?",
+   a:"Overtime is paid at 1.5× the hourly basic rate, subject to a 72-hour monthly cap. Part IV covers workmen and non-workmen below the specified salary thresholds — it does not cover managers or executives.",
+   src:["Employment Act · Part IV","Internal SOP · Overtime"]},
+  {cat:"Employment Act", q:"Are we required to issue payslips?",
+   a:"Yes — employers must issue itemised payslips with every salary payment, and provide written Key Employment Terms (KETs) to covered employees.",
+   src:["Employment Act · Payslips & KETs"]},
+  {cat:"Employment Act", q:"What notice period applies on termination?",
+   a:"Notice follows the employment contract. Where the contract is silent, the Employment Act sets a scale by length of service (from 1 day up to 4 weeks). Either party may pay salary in lieu of notice. (Always check the contract terms.)",
+   src:["Employment Act · Notice of termination"]},
+  {cat:"Leave & benefits", q:"What is the paid annual leave entitlement?",
+   a:"Under the Employment Act, a covered employee earns a minimum of 7 days' paid annual leave in the first year, increasing by one day per additional year of service up to a maximum of 14 days.",
+   src:["Employment Act · Annual leave"]},
+  {cat:"Leave & benefits", q:"What paid sick leave applies?",
+   a:"After 6 months' service: up to 14 days paid outpatient sick leave and up to 60 days paid hospitalisation leave per year (the 60 includes the 14). Certification by an approved doctor is required.",
+   src:["Employment Act · Sick leave"]},
+  {cat:"Leave & benefits", q:"Do foreign workers contribute to CPF?",
+   a:"No. CPF applies to Singapore Citizens and Permanent Residents. Foreign workers are not on CPF — a monthly foreign-worker levy applies instead.",
+   src:["CPF Act","EFMA · Levy"]},
+  {cat:"Foreign workers", q:"What is the Dependency Ratio Ceiling (DRC)?",
+   a:"The DRC caps the proportion of Work Permit holders a firm may employ relative to its local workforce; the construction sector also operates under the Man-Year Entitlement (MYE) framework. Exceeding the DRC blocks new Work Permit applications. (Verify the current ratio/quota with MOM.)",
+   src:["EFMA · DRC / MYE","MOM circular"]},
+  {cat:"Foreign workers", q:"When can a foreign-worker levy waiver be claimed?",
+   a:"Waivers can be claimed for periods the worker is not working in qualifying circumstances — e.g. overseas/home leave beyond the threshold, hospitalisation, early repatriation, or confirmed AWOL. Apply to MOM with supporting evidence.",
+   src:["EFMA · Levy waiver","Internal SOP · Levy & waiver"]},
+  {cat:"Data & PDPA", q:"How long do we retain employee records under MOM rules?",
+   a:"For current employees, retain the latest two years of records. For ex-employees, retain their last two years of records for one year after they leave. The portal enforces this retention clock automatically.",
+   src:["MOM · Employment Act record-keeping","Internal · PDPA Retention Policy"]},
+  {cat:"Data & PDPA", q:"When must a data breach be reported under PDPA?",
+   a:"Notify the PDPC (and affected individuals) where a breach is likely to cause significant harm to individuals, or affects 500 or more individuals. Notify the PDPC within 3 calendar days of assessing the breach as notifiable.",
+   src:["PDPA · Data Breach Notification","Internal · PDPA policy"]},
+  {cat:"Discipline & claims", q:"When must a non-fatal work injury be reported to MOM?",
+   a:"Non-fatal accidents must be reported within 10 days of the employer's first notice of the accident. Fatal accidents must be notified as soon as reasonably practicable and formally reported within 10 days. HR prepares notifications; HR does not conduct safety investigations.",
+   src:["WICA · Incident reporting","Internal SOP · EHS coordination"]},
+  {cat:"Discipline & claims", q:"What process applies before dismissing for misconduct?",
+   a:"Hold a due inquiry before taking action (e.g. dismissal or downgrade) for misconduct, giving the employee a chance to respond. Follow the disciplinary flow: incident → fact-finding → written warning → suspension → termination review.",
+   src:["Employment Act · Misconduct inquiry","Internal · Disciplinary framework"]},
+];
+
+/* =================== state & render =================== */
+let role = "manager";
+let view = "dashboard";
+const main = document.getElementById("main");
+document.getElementById("asof").textContent = "Data as of " + ASOF;
+
+function alertsForRole(r){
+  if(r==="head"||r==="manager") return ALERTS;
+  const map={payroll:"payroll",fw:"fw",staff:"staff"};
+  if(map[r]) return ALERTS.filter(a=>a.tags.includes(map[r])||(!a.tags.includes("fw")&&!a.tags.includes("payroll")&&!a.tags.includes("staff")&&a.tags.includes("compliance")&&false));
+  return [];
+}
+function roleAlerts(r){
+  if(r==="head"||r==="manager") return ALERTS;
+  if(r==="fw") return ALERTS.filter(a=>a.tags.includes("fw"));
+  if(r==="payroll") return ALERTS.filter(a=>a.tags.includes("payroll"));
+  if(r==="staff") return ALERTS.filter(a=>a.tags.includes("staff"));
+  if(r==="assistant") return ALERTS.filter(a=>a.own==="HR Assistant");
+  return [];
+}
+
+function renderNav(){
+  const nav=document.getElementById("nav");
+  nav.innerHTML="";
+  ROLES[role].nav.forEach(v=>{
+    const b=document.createElement("button");
+    b.className="navitem"+(v===view?" active":"");
+    let cnt=0;
+    if(v==="compliance") cnt=roleAlerts(role).filter(a=>a.sev==="crit").length;
+    else if(v==="approvals") cnt=APPROVALS.filter(a=>a.status==="pending"&&TIERS[a.tier].rank<=roleRank(role)).length;
+    b.innerHTML=`<span class="ico">${NAVMETA[v].ico}</span> ${NAVMETA[v].label}`+(cnt?`<span class="badge">${cnt}</span>`:"");
+    b.onclick=()=>{view=v;render();};
+    nav.appendChild(b);
+  });
+  document.getElementById("scope").innerHTML=`<b>${ROLES[role].name}</b>${ROLES[role].scope}`;
+  document.getElementById("avatar").textContent=ROLES[role].init;
+}
+
+function sevPill(s){const m={crit:"Critical",warn:"Watch",info:"Info",ok:"OK"};return `<span class="pill ${s}">${m[s]||s}</span>`;}
+
+function render(){
+  if(!ROLES[role].nav.includes(view)) view=ROLES[role].nav[0];
+  renderNav();
+  if(view==="dashboard") renderDashboard();
+  else if(view==="compliance") renderCompliance();
+  else if(view==="documents") renderDocuments();
+  else if(view==="recruitment") renderRecruitment();
+  else if(view==="knowledge") renderKnowledge();
+  else if(view==="approvals") renderApprovals();
+}
+
+/* ---------- DASHBOARD ---------- */
+function renderDashboard(){
+  const kpiByRole={
+    head:[["info","Open approvals","4","awaiting your sign-off"],["crit","Critical alerts","2","across the department"],["ok","Licence grading","Healthy","BCA A1"],["info","Headcount","312","staff + workers"]],
+    manager:[["crit","Critical alerts","2","need attention today"],["info","Open approvals","4","in your queue"],["warn","Cost drift","+2.1%","manpower vs budget"],["ok","Audit readiness","Ready","headcount reconciled"]],
+    payroll:[["warn","OT cap breaches","1","worker over 72 hrs"],["info","Levy this month","$48,200","FWL billing"],["ok","Payroll status","Reconciled","last cycle"],["info","Pending waivers","3","with MOM"]],
+    fw:[["crit","Permit ≤30 days","1","renewal not started"],["crit","DRC headroom","2.8%","tightening"],["warn","Passports ≤60 days","3","reminders sent"],["info","AWOL this month","0","clean"]],
+    staff:[["warn","FCF window closing","1","Site Engineer · 2 days"],["info","Open requisitions","5","2 at offer stage"],["ok","Attrition (YTD)","8.4%","below target"],["info","Onboarding","2","starting next week"]],
+    assistant:[["warn","Missing OT entries","6","sites to chase"],["warn","IPA expiring","2","flag to Exec (FW)"],["info","Onboarding kits","2","to prepare"],["info","Docs to scan","11","in queue"]],
+  };
+  const k=kpiByRole[role]||kpiByRole.manager;
+  let h=`<div class="page-head hero"><h1>Good morning — ${ROLES[role].name}</h1><p>Your snapshot for today. ${role==='manager'||role==='head'?'Department-wide view.':'Scoped to your function.'} · Data as of ${ASOF}</p></div>`;
+  h+=`<div class="grid g-kpi">`+k.map(c=>`<div class="card tile ${c[0]}"><div class="lab">${c[1]}</div><div class="val">${c[2]}</div><div class="sub">${c[3]}</div></div>`).join("")+`</div>`;
+  const al=roleAlerts(role);
+  h+=`<div style="margin-top:16px" class="card"><h3>⚑ Your alerts <span class="count">${al.length} item${al.length!==1?'s':''} · auto-prioritised</span></h3>`;
+  h+= al.length? al.map(a=>alertRow(a)).join("") : `<p class="note">No open alerts in your scope.</p>`;
+  h+=`</div>`;
+  if(role==='manager'||role==='head'){
+    h+=`<div class="grid g-2" style="margin-top:16px">
+      <div class="card"><h3>📈 Weekly HR Assurance Summary <span class="count">auto-generated</span></h3>
+        <table class="dt"><tr><th>Risk area</th><th>Status</th></tr>
+        <tr><td>Regulatory / licence</td><td>${sevPill('ok')}</td></tr>
+        <tr><td>Manpower sufficiency (DRC)</td><td>${sevPill('warn')}</td></tr>
+        <tr><td>Cost drift</td><td>${sevPill('warn')}</td></tr>
+        <tr><td>People risk / grievances</td><td>${sevPill('ok')}</td></tr>
+        <tr><td>Data / PDPA</td><td>${sevPill('info')}</td></tr></table></div>
+      <div class="card"><h3>🧭 Team workload <span class="count">today</span></h3>
+        <table class="dt"><tr><th>Role</th><th class="num">Open tasks</th></tr>
+        <tr><td>Exec (Payroll)</td><td class="num">7</td></tr>
+        <tr><td>Exec (FW)</td><td class="num">12</td></tr>
+        <tr><td>Exec (Staff)</td><td class="num">9</td></tr>
+        <tr><td>HR Assistant</td><td class="num">15</td></tr></table></div>
+    </div>`;
+  }
+  main.innerHTML=h;
+}
+function alertRow(a){
+  return `<div class="alert ${a.sev}"><div class="stripe"></div><div><div class="at">${a.t}</div><div class="ad">${a.d}</div></div>
+    <div class="meta"><div class="own">${a.own}</div><div>${a.due}</div></div></div>`;
+}
+
+/* ---------- COMPLIANCE ---------- */
+let compTab="alerts";
+function renderCompliance(){
+  let h=`<div class="page-head"><h1>⚑ Compliance &amp; Early-Warning Monitor</h1><p>Continuous watch over every regulatory clock. All figures deterministic — no AI in this view. <b>Data as of ${ASOF}.</b></p></div>`;
+  const al=roleAlerts(role);
+  h+=`<div class="grid g-kpi" style="margin-bottom:18px">
+    <div class="card tile crit"><div class="lab">DRC headroom</div><div class="val">2.8%</div><div class="sub">before quota breach</div></div>
+    <div class="card tile crit"><div class="lab">Permits ≤ 30 days</div><div class="val">1</div><div class="sub">renewal not started</div></div>
+    <div class="card tile warn"><div class="lab">OT cap breaches</div><div class="val">1</div><div class="sub">+1 approaching</div></div>
+    <div class="card tile warn"><div class="lab">FCF closing</div><div class="val">1</div><div class="sub">no offers yet allowed</div></div>
+    <div class="card tile ok"><div class="lab">BCA A1 grading</div><div class="val">OK</div><div class="sub">above threshold</div></div>
+  </div>`;
+  h+=`<div class="tabs">`+[["alerts","Alert board"],["permits","Permits & Passports"],["drc","DRC & Quota"],["ot","Overtime"],["fcf","FCF Tracker"],["ret","Licence & Retention"]].map(t=>`<button class="tab ${compTab===t[0]?'active':''}" data-t="${t[0]}">${t[1]}</button>`).join("")+`</div>`;
+  h+=`<div id="compBody"></div>`;
+  main.innerHTML=h;
+  main.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{compTab=b.dataset.t;renderCompBody();});
+  renderCompBody();
+}
+function renderCompBody(){
+  const body=document.getElementById("compBody");
+  main.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.t===compTab));
+  const al=roleAlerts(role);
+  if(compTab==="alerts"){
+    body.innerHTML=`<div class="card"><h3>Prioritised alerts <span class="count">${al.length} in your scope</span></h3>`+
+      (al.length?al.map(a=>alertRow(a)).join(""):`<p class="note">No alerts in your scope.</p>`)+`</div>`;
+  } else if(compTab==="permits"){
+    body.innerHTML=card(`Work permits &amp; passports`, `${PERMITS.length} workers`, tbl(
+      ["Worker","ID","R-type","Permit expiry","Passport expiry","Status",""],
+      PERMITS.map(p=>[p.name,`<span class="mono">${p.id}</span>`,p.type,p.permit,p.passport,p.status,sevPill(p.flag)])
+    )+`<p class="note">Expiry windows scanned nightly; tiered reminders auto-issued to the HR Assistant.</p>`);
+  } else if(compTab==="drc"){
+    body.innerHTML=`<div class="card"><h3>Dependency Ratio Ceiling <span class="count">live position</span></h3>
+      <div class="gauge-wrap"><div class="gauge" style="--p:87;--gc:var(--crit)"><div class="inner"><b>87.2%</b><span>of ceiling</span></div></div>
+      <div style="flex:1;min-width:240px"><table class="dt">
+        <tr><th>Measure</th><th class="num">Value</th></tr>
+        <tr><td>Local headcount</td><td class="num">96</td></tr>
+        <tr><td>Foreign workers (current)</td><td class="num">198</td></tr>
+        <tr><td>Quota ceiling</td><td class="num">227</td></tr>
+        <tr><td>Headroom remaining</td><td class="num">29 (2.8%)</td></tr>
+        <tr><td>IPAs in flight</td><td class="num">6</td></tr>
+        <tr><td>Effective headroom (post-IPA)</td><td class="num">23</td></tr>
+      </table></div></div>
+      <p class="note">⚠ Adding quota-bearing hires risks breach once in-flight IPAs convert. Monthly DRC report auto-compiled for HR Manager.</p></div>`;
+  } else if(compTab==="ot"){
+    body.innerHTML=card(`Overtime — Part IV monitoring`, `1.5× rate · 72-hr cap`, tbl(
+      ["Worker","ID","Site","OT hrs (month)","Cap",""],
+      OT.map(o=>[o.name,`<span class="mono">${o.id}</span>`,o.site,`<span class="num">${o.hrs.toFixed(1)}</span>`,`<span class="num">${o.cap}</span>`,sevPill(o.status)])
+    )+`<p class="note">Weekly OT exception report shared with EHS for fatigue monitoring. Calculations audited against HRIQ config.</p>`);
+  } else if(compTab==="fcf"){
+    body.innerHTML=card(`Fair Consideration Framework`, `14-day advertising rule`, tbl(
+      ["Role","Pass type","Posted","Days elapsed","Offers allowed?"],
+      FCF.map(f=>[f.role,f.pass,f.posted,`<span class="num">${f.days} / 14</span>`, f.ok?`<span class="pill ok">Yes</span>`:`<span class="pill crit">Blocked · ${14-f.days}d left</span>`])
+    )+`<p class="note">The portal blocks offer-letter generation for roles still inside the mandatory window.</p>`);
+  } else if(compTab==="ret"){
+    body.innerHTML=`<div class="grid g-2">
+      ${card(`Licence conditions`, `BCA A1`, tbl(["Condition","Status"],[
+        ["Net worth threshold",sevPill('ok')],["Paid-up capital",sevPill('ok')],["Manpower documentation",sevPill('ok')],["Renewal window",`<span class="pill info">Opens Q4</span>`]])) }
+      ${card(`PDPA retention clock`, `auto-enforced`, tbl(["Cohort","Records","Action"],[
+        ["Current employees","312","Retain latest 2 yrs"],["Ex-employees (in window)","41","Retain"],["Past retention window","5",`<span class="pill warn">Purge review</span>`]]))}
+    </div><p class="note">Retention enforced per MOM Employment Act rules; purge requires HR Manager review before execution.</p>`;
+  }
+}
+function card(title,count,inner){return `<div class="card"><h3>${title} <span class="count">${count}</span></h3>${inner}</div>`;}
+function tbl(heads,rows){return `<div class="tblscroll"><table class="dt"><tr>${heads.map(h=>`<th>${h}</th>`).join("")}</tr>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("")}</table></div>`;}
+
+/* ---------- DOCUMENTS (AI sandbox) ---------- */
+let docState={tpl:"bond", emp:"S-104", phase:"idle"};
+let docHistory=[]; let docSeq=0; let docHistFilter="all"; const TODAY="27 Jun 2026";
+let USER_TEMPLATES=[]; let utSeq=0;
+function renderDocuments(){
+  let h=`<div class="page-head"><h1>✎ Document Generator</h1><p>AI drafts the prose; personal data never leaves the trust zone unprotected. Every draft is human-reviewed before issue.</p></div>`;
+  h+=`<div class="doc-grid"><div class="card">
+    <div class="field"><label for="tplSel">Template</label><select id="tplSel">
+      <optgroup label="Built-in templates">${Object.entries(TEMPLATES).map(([k,v])=>`<option value="${k}" ${docState.tpl===k?'selected':''}>${v.label}</option>`).join("")}</optgroup>
+      ${USER_TEMPLATES.length?`<optgroup label="Your uploaded templates">${USER_TEMPLATES.map(t=>`<option value="${t.id}" ${docState.tpl===t.id?'selected':''}>${t.label}</option>`).join("")}</optgroup>`:""}
+    </select></div>
+    <button class="btn ghost" id="upTpl" style="width:100%;margin-bottom:12px;font-size:13px">＋ Upload template / example</button>
+    <div class="field"><label for="empSel">Employee</label><select id="empSel">${EMPLOYEES.map(e=>`<option value="${e.id}" ${docState.emp===e.id?'selected':''}>${e.name} · ${e.role}</option>`).join("")}</select></div>
+    <button class="btn" id="genBtn" style="width:100%">Generate draft</button>
+    <div class="sandbox" id="sandbox" style="margin-top:14px"><div class="sh">AI–PII sandbox</div>
+      ${sbStep("Fetch fields from Portal DB","in")}
+      ${sbStep("De-identify → placeholders","in")}
+      ${sbStep("Send skeleton to model","out")}
+      ${sbStep("Model returns draft prose","out")}
+      ${sbStep("Re-hydrate real values locally","in")}
+      ${sbStep("Await human review","in")}
+    </div>
+  </div>
+  <div><div id="docOut" class="card"><div class="placeholder" id="docPlaceholder">Choose a template and employee, then <b>Generate draft</b> to see the sandboxed AI flow.</div></div></div>
+  </div>`;
+  h+=`<div class="card" id="docHistoryWrap" style="margin-top:18px"></div>`;
+  main.innerHTML=h;
+  document.getElementById("tplSel").onchange=e=>{docState.tpl=e.target.value;};
+  document.getElementById("empSel").onchange=e=>{docState.emp=e.target.value;renderDocHistory();};
+  document.getElementById("genBtn").onclick=runGen;
+  document.getElementById("upTpl").onclick=uploadTemplateModal;
+  renderDocHistory();
+}
+function statusPill(s){const m={Draft:'info',Released:'ok',Signed:'ok',Rejected:'crit'};return `<span class="pill ${m[s]||'info'}">${s}</span>`;}
+function renderDocHistory(){
+  const wrap=document.getElementById("docHistoryWrap"); if(!wrap) return;
+  const emp=EMPLOYEES.find(x=>x.id===docState.emp);
+  const mine=docHistory.filter(d=>d.empId===docState.emp);
+  const list=(docHistFilter==="emp"?mine:docHistory).slice().reverse();
+  wrap.innerHTML=`<h3>🗂 Document history <span class="count">${docHistory.length} total${emp?` · ${mine.length} for ${emp.name}`:''}</span></h3>
+    <div class="tabs" style="margin-bottom:10px">
+      <button class="tab ${docHistFilter==='emp'?'active':''}" data-f="emp">This employee (${mine.length})</button>
+      <button class="tab ${docHistFilter==='all'?'active':''}" data-f="all">All documents (${docHistory.length})</button>
+    </div>`+
+    (list.length? tbl(["Date","Document","For","Status","Source"], list.map(d=>[d.when,d.tplLabel,`${d.empName} <span class="mono" style="color:var(--slate-3)">${d.empId}</span>`,statusPill(d.status),d.source]))
+      : `<p class="note">No documents ${docHistFilter==='emp'?'for this employee ':''}generated yet.</p>`);
+  wrap.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{docHistFilter=b.dataset.f;renderDocHistory();});
+}
+function sbStep(label,zone,i){return `<div class="sbstep" data-step><span class="dot"></span>${label}<span class="zone ${zone}">${zone==='in'?'TRUST':'MODEL'}</span></div>`;}
+
+function runGen(){
+  const e=EMPLOYEES.find(x=>x.id===docState.emp);
+  const fcfBlocked=false;
+  const steps=[...document.querySelectorAll(".sbstep")];
+  steps.forEach(s=>s.classList.remove("done","active"));
+  document.getElementById("genBtn").disabled=true;
+  document.getElementById("docOut").innerHTML=`<div class="placeholder">Running sandboxed generation…</div>`;
+  let i=0;
+  const reduce=window.matchMedia("(prefers-reduced-motion:reduce)").matches;
+  const tick=()=>{
+    if(i>0) steps[i-1].classList.remove("active"),steps[i-1].classList.add("done");
+    if(i<steps.length){ steps[i].classList.add("active"); i++; setTimeout(tick, reduce?0:520); }
+    else { showLetter(e); document.getElementById("genBtn").disabled=false; }
+  };
+  tick();
+}
+function showLetter(e){
+  const map={NAME:e.name,ID:e.id,ROLE:e.role,BOND:e.bond,BONDMONTHS:e.bondMonths,INCR:e.incr,DEPT:e.dept};
+  const tpl=getTemplate(docState.tpl);
+  const paras=tpl.body(map,e);
+  const subj=(tpl.label||"Letter").toUpperCase();
+  const entry={id:++docSeq,tpl:docState.tpl,tplLabel:tpl.label,empId:e.id,empName:e.name,when:TODAY,status:"Draft",source:"Documents"};
+  docHistory.push(entry); renderDocHistory();
+  const out=document.getElementById("docOut");
+  out.innerHTML=`<div class="ai-tag">⚠ AI-generated draft · re-hydrated in trust zone · not yet issued</div>
+    <div id="docPage" class="doc-page">${letterheadHTML(e,subj,paras)}</div>
+    <div class="gate"><span class="gl">Human review gate — review, then approve &amp; release (logged).</span>
+      <button class="btn ghost" id="dlWord">⤓ Word (.doc)</button>
+      <button class="btn ghost" id="dlPdf">⎙ Print / PDF</button>
+      <button class="btn warn-b">Reject</button>
+      <button class="btn ok" id="rel">Approve &amp; release</button></div>
+    <details style="margin-top:12px"><summary style="cursor:pointer;font-size:12.5px;color:var(--slate-2)">What the model actually received (de-identified)</summary>
+    <div class="letter" style="margin-top:10px;background:var(--panel-2)">${paras.map(p=>`<p>${redact(p,e)}</p>`).join("")}</div></details>`;
+  const fn=(subj.replace(/[^A-Z0-9]+/gi,"_")+"_"+e.name.replace(/\s+/g,"_"));
+  const wireDl=(scope)=>{ const w=scope.querySelector("#dlWord")||scope.querySelector("#dlWord2"); const p=scope.querySelector("#dlPdf")||scope.querySelector("#dlPdf2");
+    if(w) w.onclick=()=>downloadDoc(fn+".doc",document.getElementById("docPage").innerHTML); if(p) p.onclick=()=>window.print(); };
+  wireDl(out);
+  const rel=out.querySelector("#rel");
+  if(rel) rel.onclick=()=>{ entry.status="Released"; renderDocHistory();
+    out.querySelector(".gate").innerHTML=`<span class="pill ok">✓ Released &amp; archived</span> <span class="gl">Approval by ${ROLES[role].name} logged at ${ASOF}.</span> <button class="btn ghost" id="dlWord2" style="padding:5px 11px;font-size:12px">⤓ Word</button> <button class="btn ghost" id="dlPdf2" style="padding:5px 11px;font-size:12px">⎙ PDF</button>`;
+    wireDl(out.querySelector(".gate")); };
+}
+function letterheadHTML(e,subj,paras){
+  const first=(e.name||"").split(" ")[0]||"Sir/Madam";
+  return `<div class="lh-head">
+      <div class="lh-logo">[ COMPANY<br>LOGO ]</div>
+      <div class="lh-co"><b>Your Company Pte Ltd</b><br>Reg No: 19900xxxxR<br>30A Example Place, Singapore 339213<br>T (65) 6356 0000 · www.company.com.sg</div>
+    </div>
+    <div class="lh-row"><span>Our Ref: HR/26-${e.id}</span><span>${TODAY}</span></div>
+    <div class="lh-to"><b>${e.name}</b><br>Employee ID: ${e.id}<br>${e.role}, ${e.dept} Department</div>
+    <div>Dear ${first},</div>
+    <div class="lh-subj">${subj}</div>
+    ${paras.map(p=>`<p>${p}</p>`).join("")}
+    <div class="lh-sign">Yours faithfully,<br>for and on behalf of <b>Your Company Pte Ltd</b>
+      <div class="line">Authorised Signatory &middot; HR Manager</div>
+      <div style="margin-top:26px">Acknowledged &amp; accepted by:</div>
+      <div class="line">${e.name} (${e.id})</div>
+    </div>`;
+}
+function downloadDoc(filename,inner){
+  const css="body{font-family:'Times New Roman',Georgia,serif;font-size:12pt;color:#111;margin:40px;}.lh-head{display:flex;justify-content:space-between;border-bottom:2px solid #1f3a57;padding-bottom:10px;margin-bottom:20px;}.lh-co{text-align:right;font-size:10pt;}.lh-co b{font-size:13pt;color:#1f3a57;}.lh-logo{border:1px dashed #bbb;padding:14px 16px;color:#999;font-size:9pt;text-align:center;}.lh-row{display:flex;justify-content:space-between;font-size:10pt;}.lh-to{margin:16px 0;}.lh-subj{font-weight:bold;text-decoration:underline;margin:14px 0;}p{margin:0 0 10pt;}.lh-sign{margin-top:34px;}.lh-sign .line{margin-top:34px;border-top:1px solid #333;width:240px;padding-top:3px;}";
+  const html="<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word'><head><meta charset='utf-8'><style>"+css+"</style></head><body>"+inner+"</body></html>";
+  try{
+    const blob=new Blob(['﻿'+html],{type:'application/msword'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1500);
+  }catch(err){ alert('Download is blocked inside this embedded preview. Open the standalone HTML file to download.'); }
+}
+function redact(p,e){
+  return p.replace(e.name,'<span class="redacted">[EMPLOYEE_1]</span>').replace(e.id,'<span class="redacted">[ID_1]</span>')
+    .replace(e.bond,'<span class="redacted">[AMOUNT_1]</span>').replace(e.incr,'<span class="redacted">[PCT_1]</span>')
+    .replace(e.role,'<span class="redacted">[ROLE_1]</span>').replace(e.dept,'<span class="redacted">[DEPT_1]</span>');
+}
+function getTemplate(key){
+  if(key&&key.indexOf("u:")===0){ const t=USER_TEMPLATES.find(x=>x.id===key); return t?{label:t.label,body:(map,emp)=>uploadedBody(t,emp)}:TEMPLATES.bond; }
+  return TEMPLATES[key]||TEMPLATES.bond;
+}
+function uploadedBody(t,e){
+  const map={"Employee Name":e.name,"Designation / Role":e.role,"Department":e.dept,"Date":TODAY,"Salary / Amount":e.bond,"Start Date":"1 Aug 2026","Notice Period":"1 month","Bond Sum":e.bond,"Reporting Manager":"the Project Director","Employee ID":e.id};
+  const filled=t.fields.map(f=>`${f}: ${(map[f]!==undefined&&map[f]!==null)?map[f]:'['+f.toUpperCase().replace(/[^A-Z0-9]+/g,'_')+']'}`);
+  return [
+    `This letter is issued under the &ldquo;${t.label}&rdquo; ${t.kind==='example'?'format':'template'}.`,
+    `The merge fields detected in your uploaded document have been populated from the employee record — ${filled.join('; ')}.`,
+    `The body reproduces the structure and standard wording of your uploaded document, with the fields above substituted. Please review before issuing.`
+  ];
+}
+function detectTemplateFields(fileName){
+  const h=hashStr("tpl:"+fileName);
+  const base=["Employee Name","Designation / Role"];
+  const extra=["Department","Date","Salary / Amount","Start Date","Notice Period","Bond Sum","Reporting Manager","Employee ID"];
+  const picked=[]; for(let i=0;i<extra.length;i++){ if((h>>i)&1) picked.push(extra[i]); }
+  if(picked.length<2) picked.push("Department","Date");
+  return base.concat(picked.slice(0,6));
+}
+function analyzeTemplateFlow(m,bodyEl,footEl,fileName,kind,name,onConfirm){
+  const reduce=window.matchMedia("(prefers-reduced-motion:reduce)").matches;
+  const steps=["Uploading &amp; virus-scanning","Reading document (OCR)", kind==='example'?"Learning variable parts from the example":"Mapping placeholder fields","Building reusable template"];
+  footEl.innerHTML="";
+  bodyEl.innerHTML=`<div style="font-family:var(--mono);font-size:11px;color:var(--slate-2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px">Template analysis · ${fileName}</div><div id="tSteps"></div>`;
+  const fields=detectTemplateFields(fileName);
+  const cont=bodyEl.querySelector("#tSteps");
+  let i=0;
+  (function tick(){
+    cont.innerHTML=steps.map((s,j)=>`<div class="sbstep ${j<i?'done':(j===i?'active':'')}"><span class="dot">${j<i?'✓':''}</span>${s}</div>`).join("");
+    if(i<steps.length){ i++; setTimeout(tick,reduce?0:420); } else done();
+  })();
+  function done(){
+    bodyEl.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><span class="pill ok">✓ Template ready</span><span style="font-size:11.5px;color:var(--slate-2)">${kind==='example'?'Variable parts learned':'Placeholders mapped'} — ${fields.length} merge fields.</span></div>
+      <div style="font-size:11px;font-family:var(--mono);color:var(--slate-2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:7px">Detected merge fields</div>
+      <div class="src" style="display:flex;flex-wrap:wrap;gap:6px">${fields.map(f=>`<span class="chip">${f}</span>`).join("")}</div>
+      <p class="note" style="margin-top:14px">New documents from &ldquo;${name}&rdquo; will reproduce this document&#39;s wording with these fields merged from the selected employee, then run through the AI sandbox and human review like any other.</p>`;
+    footEl.innerHTML=`<button class="btn ghost" id="tCancel">Cancel</button><button class="btn" id="tSave">Save template</button>`;
+    footEl.querySelector("#tCancel").onclick=m.close;
+    footEl.querySelector("#tSave").onclick=()=>onConfirm(fields);
+  }
+}
+function uploadTemplateModal(){
+  const m=openModal(`
+    <div style="background:var(--ink);color:#eaf1f8;padding:13px 18px;display:flex;align-items:center;gap:8px"><span>✎</span><b>Upload template / example</b><span style="margin-left:auto;font-family:var(--mono);font-size:10px;color:#9fb6cc;text-transform:uppercase;letter-spacing:.08em">AI structure detection</span></div>
+    <div id="utBody" style="padding:18px 20px;overflow:auto">
+      <p style="margin:0 0 14px;font-size:12.5px;color:var(--slate-2)">Upload an existing letter. New documents will follow its structure and wording, with employee details merged in automatically.</p>
+      <div class="field"><label>Template name *</label><input id="utName" placeholder="e.g. Confirmation Letter"></div>
+      <div class="field"><label>File * (DOCX / PDF)</label><input id="utFile" type="file" accept=".pdf,.doc,.docx"></div>
+      <div class="field"><label>Type</label><select id="utKind"><option value="placeholder">Template with placeholders (e.g. {{name}})</option><option value="example">Example document — AI learns the variable parts</option></select></div>
+      <div id="utErr" class="note" style="color:var(--crit);display:none;margin-top:8px"></div>
+    </div>
+    <div id="utFoot" style="padding:14px 20px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--line-2)"><button class="btn ghost" data-close>Cancel</button><button class="btn" id="utGo">Upload &amp; analyse ▶</button></div>`);
+  const body=m.ov.querySelector("#utBody"), foot=m.ov.querySelector("#utFoot");
+  m.ov.querySelector("#utGo").onclick=()=>{
+    const name=m.ov.querySelector("#utName").value.trim();
+    const fEl=m.ov.querySelector("#utFile"), f=fEl.files&&fEl.files[0];
+    const kind=m.ov.querySelector("#utKind").value, err=m.ov.querySelector("#utErr");
+    if(!name){ err.textContent="Please name the template."; err.style.display="block"; return; }
+    if(!f){ err.textContent="Please choose a file."; err.style.display="block"; return; }
+    analyzeTemplateFlow(m,body,foot,f.name,kind,name,(fields)=>{
+      utSeq++; const id="u:"+utSeq;
+      USER_TEMPLATES.push({id,label:name,kind,fields,cv:f.name});
+      docState.tpl=id; m.close(); renderDocuments();
+    });
+  };
+}
+
+/* ---------- KNOWLEDGE ---------- */
+let chatLog=[];
+function renderKnowledge(){
+  let h=`<div class="page-head"><h1>? HR Knowledge Assistant</h1><p>Answers grounded in regulation and your SOPs — every answer cites its source. No personal data is involved.</p></div>`;
+  h+=`<div class="card" style="margin-bottom:16px;padding:12px 16px"><div style="font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--slate-2);margin-bottom:8px">Grounded in</div><div class="src" style="display:flex;flex-wrap:wrap;gap:6px">${KB_SOURCES.map(s=>`<span class="chip">📄 ${s}</span>`).join("")}</div></div>`;
+  h+=`<div class="chat" id="chat"></div>`;
+  if(chatLog.length===0){
+    const cats=[...new Set(KB.map(k=>k.cat))];
+    h+=`<div style="margin-top:8px"><div class="note" style="margin-bottom:8px;font-style:normal">Browse common questions:</div>`;
+    cats.forEach(c=>{
+      h+=`<div style="margin-bottom:11px"><div style="font-size:11px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--slate-2);margin-bottom:5px">${c}</div><div class="suggest">${KB.map((k,i)=>k.cat===c?`<button data-q="${i}">${k.q}</button>`:"").join("")}</div></div>`;
+    });
+    h+=`</div>`;
+  }
+  h+=`<div class="chat-input"><input id="chatIn" placeholder="Ask about MOM rules, the Employment Act, leave, levies, PDPA…" aria-label="Ask a question"><button class="btn" id="askBtn">Ask</button></div>`;
+  h+=`<p class="note">Prototype answers are illustrative. The live assistant retrieves and quotes the current source text, and any figures are verified against the source before being shown.</p>`;
+  main.innerHTML=h;
+  drawChat();
+  main.querySelectorAll(".suggest button").forEach(b=>b.onclick=()=>askQ(KB[+b.dataset.q]));
+  const inp=document.getElementById("chatIn");
+  document.getElementById("askBtn").onclick=()=>freeAsk(inp.value);
+  inp.addEventListener("keydown",e=>{if(e.key==="Enter")freeAsk(inp.value);});
+}
+function freeAsk(v){
+  v=(v||"").trim(); if(!v) return;
+  const hit=KB.find(k=>k.q.toLowerCase()===v.toLowerCase()) ||
+    KB.find(k=>v.toLowerCase().split(/\s+/).filter(w=>w.length>3).some(w=>k.q.toLowerCase().includes(w)||k.a.toLowerCase().includes(w)));
+  if(hit) askQ(hit,v);
+  else { chatLog.push({u:v}); chatLog.push({a:"I can answer from the curated knowledge base (Employment Act, EFMA, MOM circulars, BCA conditions and internal SOPs). I don't have a sourced answer for that in this prototype — try one of the suggested questions.",src:["Knowledge base"]}); renderKnowledge(); }
+}
+function askQ(k,typed){ chatLog.push({u:typed||k.q}); chatLog.push({a:k.a,src:k.src}); renderKnowledge(); }
+function drawChat(){
+  const c=document.getElementById("chat");
+  c.innerHTML=chatLog.map(m=>m.u!==undefined?`<div class="msg u">${m.u}</div>`:
+    `<div class="msg a">${m.a}<div class="src">${(m.src||[]).map(s=>`<span class="chip">📄 ${s}</span>`).join("")}</div></div>`).join("");
+}
+
+/* ---------- RECRUITMENT ---------- */
+const STAGES=[["screening","CV Screening"],["hirer","With Hirer"],["interview","Interview"],["offer","Offer"],["hired","Hired"]];
+// FCF gate — offers are blocked while an EP/S Pass role is inside its mandatory advertising window (same data as the Compliance Monitor)
+function fcfBlock(roleName){ const f=FCF.find(x=>x.role===roleName); return (f&&!f.ok)?f:null; }
+function renderRecruitment(){
+  let h=`<div class="page-head"><h1>👥 Recruitment</h1><p>From CV screening to signed Employment Letter. Build your own agentic workflow in the designer — guardrails stay enforced.</p></div>`;
+  h+=`<div class="tabs" style="margin-bottom:14px"><button class="tab ${recruitTab==='candidates'?'active':''}" data-rt="candidates">Candidates &amp; Pipeline</button><button class="tab ${recruitTab==='designer'?'active':''}" data-rt="designer">⚙ Workflow Designer</button></div>`;
+  if(recruitTab==="designer"){ h+=designerHTML(); main.innerHTML=h; wireRecruitTabs(); initDesigner(); return; }
+  h+=`<div class="card" style="background:var(--info-bg);border-color:#d7defb;margin-bottom:16px;padding:12px 16px;font-size:13px"><b>How hirers fit in (HR-only constraint):</b> shortlisted CVs are emailed to the selected hiring manager with a secure, one-time link to register interest — they never receive a portal login. Their response is recorded back here.</div>`;
+  const eml=`style="font-size:11px;font-family:var(--mono);color:var(--slate-2);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px"`;
+  const inp=`style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:7px;font-family:inherit;font-size:13px"`;
+  h+=`<details class="card" style="margin-bottom:16px" ${HIRERS.length===0?'open':''}>
+    <summary style="cursor:pointer;font-weight:600;font-size:15px;display:flex;align-items:center;gap:8px">👤 Hiring managers (hirer list) <span style="font-family:var(--mono);font-size:11px;color:var(--slate-2);font-weight:400">${HIRERS.length} on list</span></summary>
+    <div style="margin-top:14px">
+      ${HIRERS.length? `<div class="tblscroll" style="margin-bottom:14px">`+tbl(["Name","Department","Email",""], HIRERS.map((x,i)=>[x.name,x.dept||'—',`<span class="mono">${x.email}</span>`,`<button class="btn ghost" data-rmhirer="${i}" style="padding:4px 10px;font-size:11px">Remove</button>`]))+`</div>` : `<p class="note">No hirers yet — add one below before routing candidates.</p>`}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+        <div style="flex:2;min-width:130px"><label ${eml}>Name</label><input id="hName" placeholder="e.g. Mr Tan" ${inp}></div>
+        <div style="flex:2;min-width:120px"><label ${eml}>Department</label><input id="hDept" placeholder="e.g. Operations" ${inp}></div>
+        <div style="flex:3;min-width:170px"><label ${eml}>Email</label><input id="hEmail" type="email" placeholder="name@company.com" ${inp}></div>
+        <button class="btn" id="addHirer">+ Add hirer</button>
+      </div>
+      <div id="hirerErr" class="note" style="color:var(--crit);display:none;margin-top:8px"></div>
+    </div>
+  </details>`;
+  h+=`<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap"><button class="btn" id="addCand">＋ Add candidate (upload CV)</button><button class="btn ghost" id="prevIntake">↗ Preview candidate application page</button></div>`;
+  const rej=CANDIDATES.filter(c=>c.stage==="rejected").length;
+  h+=`<div class="grid g-kpi" style="margin-bottom:16px">
+    <div class="card tile info"><div class="lab">In pipeline</div><div class="val">${CANDIDATES.filter(c=>c.stage!=='rejected').length}</div><div class="sub">active candidates</div></div>
+    <div class="card tile warn"><div class="lab">Awaiting hirer</div><div class="val">${CANDIDATES.filter(c=>c.stage==='hirer').length}</div><div class="sub">sent to hiring managers</div></div>
+    <div class="card tile info"><div class="lab">At offer</div><div class="val">${CANDIDATES.filter(c=>c.stage==='offer').length}</div><div class="sub">offer stage</div></div>
+    <div class="card tile ok"><div class="lab">Hired (YTD)</div><div class="val">${CANDIDATES.filter(c=>c.stage==='hired').length}</div><div class="sub">letters recorded</div></div>
+  </div>`;
+  h+=`<div class="tblscroll"><div style="display:flex;gap:12px;min-width:820px;align-items:flex-start;padding-bottom:4px">`;
+  STAGES.forEach(s=>{
+    let items=CANDIDATES.filter(c=>c.stage===s[0]);
+    const ranked=s[0]==="screening";
+    if(ranked) items=items.slice().sort((a,b)=>fitScore(b)-fitScore(a));
+    const hint=ranked?` <span style="text-transform:none;color:var(--slate-3)">· by fit</span>`:"";
+    h+=`<div style="flex:1;min-width:158px"><div style="font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--slate-2);padding:6px 4px;display:flex;justify-content:space-between"><span>${s[1]}${hint}</span><span>${items.length}</span></div>`;
+    h+=(items.map((c,idx)=>candCard(c,ranked?idx+1:null)).join("")||`<div class="note" style="padding:8px 4px">—</div>`);
+    h+=`</div>`;
+  });
+  h+=`</div></div>`;
+  const rejected=CANDIDATES.filter(c=>c.stage==="rejected");
+  if(rejected.length){
+    h+=`<details class="card" style="margin-top:14px"><summary style="cursor:pointer;font-weight:600;font-size:14px">✕ Rejected / declined <span style="font-family:var(--mono);font-size:11px;color:var(--slate-2);font-weight:400">${rejected.length} · records retained ≥1 yr (MOM defensibility)</span></summary>
+      <div style="margin-top:12px">`+tbl(["Candidate","Role","Stage reached","Reason","Date"],rejected.map(c=>[c.name+` <span class="mono" style="color:var(--slate-3)">${c.id}</span>`,c.role,(STAGES.find(s=>s[0]===c.prevStage)||["","Screening"])[1],c.rejReason||"—",c.rejWhen||TODAY]))+`</div></details>`;
+  }
+  h+=`<p class="note">Prototype — auto-emails are simulated previews; advancing a candidate would write to the audit trail. Signed Employment Letters also appear in the Documents history. Offers are blocked while a role's FCF advertising window is open (see Compliance Monitor).</p>`;
+  main.innerHTML=h;
+  main.querySelectorAll("[data-act]").forEach(b=>b.onclick=()=>candAction(b.dataset.act,b.dataset.id));
+  const add=document.getElementById("addHirer");
+  if(add) add.onclick=()=>{
+    const n=document.getElementById("hName").value.trim();
+    const d=document.getElementById("hDept").value.trim();
+    const em=document.getElementById("hEmail").value.trim();
+    const err=document.getElementById("hirerErr");
+    if(!n||!em){ err.textContent="Name and email are required."; err.style.display="block"; return; }
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){ err.textContent="Please enter a valid email address."; err.style.display="block"; return; }
+    if(HIRERS.some(x=>x.email.toLowerCase()===em.toLowerCase())){ err.textContent="A hirer with that email already exists."; err.style.display="block"; return; }
+    HIRERS.push({name:n,dept:d,email:em}); renderRecruitment();
+  };
+  main.querySelectorAll("[data-rmhirer]").forEach(b=>b.onclick=()=>{ HIRERS.splice(+b.dataset.rmhirer,1); renderRecruitment(); });
+  const ac=document.getElementById("addCand"); if(ac) ac.onclick=addCandidateModal;
+  const pi=document.getElementById("prevIntake"); if(pi) pi.onclick=intakePreview;
+  wireRecruitTabs();
+}
+function wireRecruitTabs(){ main.querySelectorAll("[data-rt]").forEach(b=>b.onclick=()=>{ recruitTab=b.dataset.rt; renderRecruitment(); }); }
+function candCard(c,rank){
+  let action="";
+  if(c.stage==="screening"){
+    if(HIRERS.length===0) action=`<div class="pill warn" style="width:100%;justify-content:center">Add a hirer first</div>`;
+    else action=`<select id="hsel-${c.id}" aria-label="Select hirer" style="width:100%;font-size:12px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;margin-bottom:6px">${HIRERS.map((x,i)=>`<option value="${i}" ${ROLE_HIRER[c.role]===x.name?'selected':''}>${x.name} · ${x.dept||''}</option>`).join("")}</select>
+      <button class="btn" data-act="screen" data-id="${c.id}" style="width:100%;font-size:12px;padding:7px">AI screen &amp; email hirer ▶</button>`;
+  }
+  else if(c.stage==="hirer") action=`<div style="font-size:10px;color:var(--slate-3);font-family:var(--mono);margin-bottom:5px">CV emailed via secure link — record hirer's response:</div><div style="display:flex;gap:6px"><button class="btn ok" data-act="interested" data-id="${c.id}" style="flex:1;font-size:12px;padding:7px">✓ Hirer interested</button><button class="btn ghost" data-act="pass" data-id="${c.id}" style="font-size:12px;padding:7px">Passed</button></div>`;
+  else if(c.stage==="interview") action=c.invited?`<button class="btn" data-act="tooffer" data-id="${c.id}" style="width:100%;font-size:12px;padding:7px">Proceed to offer ▶</button>`:`<button class="btn" data-act="invite" data-id="${c.id}" style="width:100%;font-size:12px;padding:7px">✉ Send interview invite</button>`;
+  else if(c.stage==="offer"){
+    const fb=fcfBlock(c.role);
+    if(c.offerSent) action=`<button class="btn ok" data-act="sign" data-id="${c.id}" style="width:100%;font-size:12px;padding:7px;margin-bottom:6px">📝 Record signed letter</button><button class="btn ghost" data-act="declined" data-id="${c.id}" style="width:100%;font-size:12px;padding:7px">Offer declined</button>`;
+    else if(fb) action=`<div class="pill crit" style="width:100%;justify-content:center" title="Fair Consideration Framework — no offers during the mandatory advertising window">⛔ FCF window open · ${14-fb.days}d left — offer blocked</div>`;
+    else action=`<button class="btn" data-act="offer" data-id="${c.id}" style="width:100%;font-size:12px;padding:7px">✉ Send offer email</button>`;
+  }
+  else if(c.stage==="hired") action=`<div class="pill ok" style="width:100%;justify-content:center">✓ Letter signed · ${c.letterRecorded||TODAY}</div>`;
+  const meta=[];
+  if(c.score!=null&&c.stage!=="screening") meta.push("AI fit "+c.score);
+  if(c.source&&c.stage==="screening") meta.push(c.source.split(" · ")[0]);
+  if(c.cv) meta.push("📎 CV");
+  if(c.hirer&&c.stage!=="screening") meta.push(c.hirer);
+  if(c.invited&&c.stage==="interview") meta.push("invited");
+  if(c.offerSent&&c.stage==="offer") meta.push("offer sent");
+  let fitBlock="", skillLine="";
+  if(c.stage==="screening"){
+    const fs=fitScore(c), col=fs>=85?'var(--ok)':fs>=70?'var(--warn)':'var(--slate-3)';
+    fitBlock=`<div style="margin:7px 0 8px">
+      <div style="display:flex;justify-content:space-between;font-size:10.5px;font-family:var(--mono);color:var(--slate-2);margin-bottom:3px"><span>${rank?'#'+rank+' · ':''}AI fit score</span><span style="color:${col};font-weight:700">${fs}</span></div>
+      <div style="height:5px;background:var(--line-2);border-radius:3px;overflow:hidden"><div style="height:100%;width:${fs}%;background:${col}"></div></div></div>`;
+    if(c.skills) skillLine=`<div style="font-size:10.5px;color:var(--slate-3);line-height:1.4;margin-bottom:8px">${c.skills}</div>`;
+  }
+  return `<div class="card" style="padding:11px 12px;margin-bottom:8px">
+    <div style="font-weight:600;font-size:13.5px">${c.name}</div>
+    <div style="font-size:11.5px;color:var(--slate-2)">${c.role} · ${c.exp}</div>
+    <div style="font-size:10.5px;color:var(--slate-3);font-family:var(--mono);margin:5px 0 ${fitBlock?'0':'9px'}">${c.id}${meta.length?" · "+meta.join(" · "):""}</div>
+    ${fitBlock}${skillLine}${action}</div>`;
+}
+function candAction(act,id){
+  const c=CANDIDATES.find(x=>x.id===id); if(!c) return;
+  if(act==="screen"){
+    const sel=document.getElementById("hsel-"+id); const h=HIRERS[sel?+sel.value:0];
+    if(!h) return;
+    c.score=fitScore(c); c.hirer=h.name; c.hirerEmail=h.email; c.stage="hirer";
+    showEmail(`${h.name} <${h.email}>`, "Shortlisted CV for review — "+c.role, ["Dear "+h.name+",",`Our AI screen rated ${c.name} a ${c.score}/100 fit for the ${c.role} role (${c.exp}).`,"Please review the attached CV and register your interest via the secure link below (no login required).","[ Secure one-time link ]","Regards, HR Department"]); }
+  else if(act==="interested"){ c.stage="interview"; }
+  else if(act==="pass"){ rejectWithReason(c,"Hirer passed on this candidate","Hirer passed"); return; }
+  else if(act==="declined"){ rejectWithReason(c,"Candidate declined the offer","Offer declined"); return; }
+  else if(act==="invite"){ c.invited=true; showEmail(c.name+" <candidate@email>", "Interview Invitation — "+c.role, ["Dear "+c.name+",",`Thank you for your application for the ${c.role} position. We are pleased to invite you to an interview.`,"Proposed: 3 July 2026, 10:00am at our head office. Kindly reply to confirm your availability.","Regards, HR Department"]); }
+  else if(act==="tooffer"){ c.stage="offer"; }
+  else if(act==="offer"){ if(fcfBlock(c.role)) return; /* FCF gate — no offers inside the advertising window */ c.offerSent=true; showEmail(c.name+" <candidate@email>", "Offer of Employment — "+c.role, ["Dear "+c.name+",",`We are pleased to offer you the position of ${c.role}. Your formal Employment Letter is attached for your review.`,"Please sign and return the Employment Letter to confirm your acceptance.","Regards, HR Department"]); }
+  else if(act==="sign"){ c.stage="hired"; c.letterRecorded=TODAY; docHistory.push({id:++docSeq,tpl:"employment",tplLabel:"Employment Letter",empId:c.id,empName:c.name,when:TODAY,status:"Signed",source:"Recruitment"}); }
+  renderRecruitment();
+}
+function rejectWithReason(c,title,defaultReason){
+  const m=openModal(`
+    <div style="background:var(--ink);color:#eaf1f8;padding:13px 18px;display:flex;align-items:center;gap:8px"><span>✕</span><b>${title} — ${c.name}</b></div>
+    <div style="padding:18px 20px">
+      <div class="field"><label>Reason (kept ≥1 year for hiring-decision defensibility) *</label><textarea id="rjReason" rows="3" style="width:100%;font-family:inherit;font-size:14px;padding:9px 10px;border:1px solid var(--line);border-radius:7px">${defaultReason||""}</textarea></div>
+      <div id="rjErr" class="note" style="color:var(--crit);display:none;margin-top:4px"></div>
+    </div>
+    <div style="padding:14px 20px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--line-2)"><button class="btn ghost" data-close>Cancel</button><button class="btn warn-b" id="rjConfirm">Confirm</button></div>`);
+  m.ov.querySelector("#rjConfirm").onclick=()=>{
+    const v=m.ov.querySelector("#rjReason").value.trim();
+    if(!v){ const e=m.ov.querySelector("#rjErr"); e.textContent="A reason is required — decision records must be retained."; e.style.display="block"; return; }
+    c.prevStage=c.stage; c.stage="rejected"; c.rejReason=v; c.rejWhen=TODAY; m.close(); renderRecruitment();
+  };
+}
+function showEmail(to,subject,lines){
+  const ov=document.createElement("div");
+  ov.style.cssText="position:fixed;inset:0;background:rgba(20,32,46,.55);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px";
+  ov.innerHTML=`<div style="background:#fff;border-radius:12px;max-width:540px;width:100%;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35)">
+    <div style="background:var(--ink);color:#eaf1f8;padding:13px 18px;display:flex;align-items:center;gap:8px"><span>✉</span><b>Auto-email sent</b><span style="margin-left:auto;font-family:var(--mono);font-size:10px;color:#9fb6cc;text-transform:uppercase;letter-spacing:.08em">simulated</span></div>
+    <div style="padding:18px 20px">
+      <div style="font-size:12px;color:var(--slate-2)"><b>To:</b> ${to}</div>
+      <div style="font-size:12px;color:var(--slate-2);margin:4px 0 14px;padding-bottom:12px;border-bottom:1px solid var(--line-2)"><b>Subject:</b> ${subject}</div>
+      <div style="font-size:13.5px;line-height:1.65">${lines.map(l=>`<p style="margin:0 0 10px">${l}</p>`).join("")}</div>
+    </div>
+    <div style="padding:0 20px 18px;text-align:right"><button class="btn" id="emClose">Close</button></div>
+  </div>`;
+  document.body.appendChild(ov);
+  ov.querySelector("#emClose").onclick=()=>ov.remove();
+  ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
+}
+function openModal(inner,maxw){
+  const ov=document.createElement("div");
+  ov.style.cssText="position:fixed;inset:0;background:rgba(20,32,46,.55);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;overflow:auto";
+  ov.innerHTML=`<div style="background:#fff;border-radius:12px;max-width:${maxw||560}px;width:100%;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35);max-height:92vh;display:flex;flex-direction:column">${inner}</div>`;
+  document.body.appendChild(ov);
+  const close=()=>ov.remove();
+  ov.onclick=e=>{ if(e.target===ov) close(); };
+  ov.querySelectorAll("[data-close]").forEach(b=>b.onclick=close);
+  return {ov,close};
+}
+function nextCandId(){ let mx=500; CANDIDATES.forEach(c=>{ const n=+String(c.id).slice(2); if(n>mx)mx=n; }); return "C-"+(mx+1); }
+const SYN_ROLES=["Site Engineer","QS Executive","Project Coordinator","Safety Coordinator","M&E Coordinator"];
+const SYN_SKILLS={
+  "Site Engineer":"AutoCAD, RC structures, BCA submissions, site supervision",
+  "QS Executive":"Cost estimation, tendering, BQ preparation, contract admin",
+  "Project Coordinator":"Scheduling, MS Project, subcon coordination, RFIs",
+  "Safety Coordinator":"WSH coordination, risk assessment, toolbox briefings",
+  "M&E Coordinator":"M&E coordination, shop drawings, testing & commissioning"
+};
+const ROLE_KEYWORDS={
+  "Site Engineer":["autocad","rc","structure","bca","supervision","site"],
+  "QS Executive":["cost","tender","bq","contract","estimation","quantity"],
+  "Project Coordinator":["schedul","project","subcon","coordination","rfi","planning"],
+  "Safety Coordinator":["wsh","risk","safety","toolbox","incident"],
+  "M&E Coordinator":["m&e","shop drawing","testing","commissioning","mechanical","electrical"],
+};
+// Deterministic, explainable fit score — extracted skills + experience vs the role profile. No LLM.
+function fitScore(c){
+  if(c.fit!=null) return c.fit;
+  const kws=ROLE_KEYWORDS[c.role]||[];
+  const sk=((c.skills||"")+" "+(c.cvText||"")).toLowerCase();
+  const skillPct = (c.skills&&kws.length)? kws.filter(k=>sk.includes(k)).length/kws.length : 0.55;
+  const ym=(""+(c.exp||"")).match(/\d+/); const yrs=ym?+ym[0]:4;
+  const expFactor=Math.min(yrs,10)/10;
+  let s=Math.round(skillPct*66 + expFactor*34);
+  if(c.score!=null && !c.skills) s=c.score; // keep seeded score where there are no parsed skills
+  c.fit=Math.max(40,Math.min(98,s)); return c.fit;
+}
+function hashStr(s){let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return h;}
+function aiParseCV(fileName){
+  const base=(fileName||"").replace(/\.[^.]+$/,"").replace(/\b(cv|resume)\b/ig,"").replace(/[_\-]+/g," ").trim();
+  const h=hashStr(fileName||"x");
+  const fb=["Daniel Lim","Priya Nair","Marcus Tan","Sofia Rahman","Arun Raj","Chen Hui Ling","Faizal Osman","Nadia Ismail"];
+  const name=(base&&/[a-z]/i.test(base))? base.replace(/\s+/g," ").replace(/\b\w/g,c=>c.toUpperCase()) : fb[h%fb.length];
+  const role=SYN_ROLES[h%SYN_ROLES.length];
+  const yrs=3+(h%7);
+  const p=name.toLowerCase().split(" ");
+  const d8=String(80000000+(h%19999999));
+  return {name,role,yrs,email:(p[0]||"candidate")+"."+(p[p.length-1]||"x")+"@email.com",phone:"+65 "+d8.slice(0,4)+" "+d8.slice(4,8),skills:SYN_SKILLS[role]};
+}
+/* ===== real CV text extraction — native browser APIs, no libraries ===== */
+async function inflateBytes(bytes,raw){
+  try{
+    if(typeof DecompressionStream==="undefined") return null;
+    const ds=new DecompressionStream(raw?"deflate-raw":"deflate");
+    const buf=await new Response(new Blob([bytes]).stream().pipeThrough(ds)).arrayBuffer();
+    return new Uint8Array(buf);
+  }catch(e){ return null; }
+}
+function latin1(b){ let s="",CH=32768; for(let i=0;i<b.length;i+=CH) s+=String.fromCharCode.apply(null,b.subarray(i,Math.min(i+CH,b.length))); return s; }
+function pdfUnesc(t){
+  const map={n:"\n",r:"",t:" ","(":"(",")":")","\\":"\\"};
+  return t.replace(/\\(\d{1,3}|.)/g,(a,g)=>{ if(/^\d+$/.test(g)) return String.fromCharCode(parseInt(g,8)||32); return map[g]!==undefined?map[g]:g; });
+}
+function pdfTextFromContent(c){
+  const parts=[]; const rx=/\(((?:\\.|[^\\()])*)\)\s*(?:Tj|'|")|\[((?:\((?:\\.|[^\\()])*\)|[^\]])*)\]\s*TJ|T\*/g; let m;
+  while((m=rx.exec(c))){
+    if(m[0]==="T*"){ parts.push("\n"); continue; }
+    if(m[1]!==undefined) parts.push(pdfUnesc(m[1]));
+    else if(m[3]!==undefined){ let buf=""; const r2=/\(((?:\\.|[^\\()])*)\)/g; let m2; while((m2=r2.exec(m[3]))) buf+=pdfUnesc(m2[1]); parts.push(buf); }
+  }
+  return parts.join(" ");
+}
+async function readPdfBytes(bytes){
+  const s=latin1(bytes); if(s.indexOf("%PDF")!==0) return null;
+  let out=[],idx=0;
+  while(true){
+    const si=s.indexOf("stream",idx); if(si<0) break;
+    let ds=si+6; if(s[ds]==="\r") ds++; if(s[ds]==="\n") ds++;
+    const ei=s.indexOf("endstream",ds); if(ei<0) break;
+    const dictStart=s.lastIndexOf("<<",si);
+    const dict=dictStart>=0?s.slice(dictStart,si):"";
+    let content=null;
+    if(dict.indexOf("FlateDecode")>=0){ const inf=await inflateBytes(bytes.subarray(ds,ei),false); if(inf) content=latin1(inf); }
+    else if(dict.indexOf("/Image")<0) content=s.slice(ds,ei);
+    if(content&&(content.indexOf("Tj")>=0||content.indexOf("TJ")>=0)) out.push(pdfTextFromContent(content));
+    idx=ei+9;
+  }
+  let text=out.join("\n").replace(/[ \t]{2,}/g," ").trim();
+  const letters=(text.match(/[A-Za-z]/g)||[]).length;
+  if(text.length<40||letters/Math.max(1,text.length)<0.35) return null; /* scanned image or CID-encoded — needs OCR/LLM in production */
+  return text;
+}
+async function readDocxBytes(bytes){
+  const n=bytes.length; let eocd=-1;
+  for(let i=n-22;i>=Math.max(0,n-65558);i--){ if(bytes[i]===0x50&&bytes[i+1]===0x4B&&bytes[i+2]===0x05&&bytes[i+3]===0x06){ eocd=i; break; } }
+  if(eocd<0) return null;
+  const dv=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+  let p=dv.getUint32(eocd+16,true); const cnt=dv.getUint16(eocd+10,true);
+  for(let k=0;k<cnt;k++){
+    if(dv.getUint32(p,true)!==0x02014B50) break;
+    const nl=dv.getUint16(p+28,true),el=dv.getUint16(p+30,true),cl=dv.getUint16(p+32,true);
+    const csize=dv.getUint32(p+20,true), lho=dv.getUint32(p+42,true);
+    const name=latin1(bytes.subarray(p+46,p+46+nl));
+    if(name==="word/document.xml"){
+      const method=dv.getUint16(lho+8,true), lnl=dv.getUint16(lho+26,true), lel=dv.getUint16(lho+28,true);
+      const start=lho+30+lnl+lel, data=bytes.subarray(start,start+csize);
+      const xb=method===8?await inflateBytes(data,true):data; if(!xb) return null;
+      let xml=new TextDecoder("utf-8").decode(xb);
+      xml=xml.replace(/<w:tab[^>]*\/>/g," ").replace(/<\/w:p>/g,"\n").replace(/<[^>]+>/g,"")
+        .replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&apos;/g,"'")
+        .replace(/&#(\d+);/g,(a,d)=>String.fromCharCode(+d))
+        .replace(/\n{3,}/g,"\n\n").trim();
+      return xml.length>40?xml:null;
+    }
+    p+=46+nl+el+cl;
+  }
+  return null;
+}
+async function extractCvText(file){
+  try{
+    const buf=new Uint8Array(await file.arrayBuffer());
+    if(buf.length>10&&buf[0]===0x25&&buf[1]===0x50&&buf[2]===0x44&&buf[3]===0x46){ const t=await readPdfBytes(buf); return t?{text:t,method:"PDF"}:null; }
+    if(buf.length>4&&buf[0]===0x50&&buf[1]===0x4B){ const t=await readDocxBytes(buf); return t?{text:t,method:"Word"}:null; }
+    const t=new TextDecoder("utf-8",{fatal:false}).decode(buf);
+    if(t&&t.trim().length>40&&(t.match(/[A-Za-z]/g)||[]).length/t.length>0.3) return {text:t.trim(),method:"text"};
+    return null;
+  }catch(e){ return null; }
+}
+const SKILL_DICT=["autocad","revit","bim","tekla","rc structures","structural","bca submission","bca","site supervision","site management","concrete","piling","formwork","cost estimation","tendering","tender","bq","bill of quantities","contract administration","quantity surveying","ms project","primavera","p6","scheduling","subcontractor","rfi","shop drawing","wsh","bizsafe","risk assessment","toolbox","safety audit","incident investigation","m&e","acmv","electrical","plumbing","testing and commissioning","quality control","iso 9001"];
+function extractEntities(text){
+  const lt=text.toLowerCase();
+  const email=(text.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/)||[""])[0];
+  const phone=(text.match(/(?:\+?65[\s-]?)?[89]\d{3}[\s-]?\d{4}/)||[""])[0];
+  let name="";
+  const lm=text.match(/\bname\s*[:：]\s*([A-Za-z][A-Za-z' .\-]{2,39})/i);
+  if(lm) name=lm[1].trim();
+  if(!name){
+    const lines=text.split(/\n+/).map(x=>x.trim()).filter(Boolean);
+    for(const L of lines.slice(0,8)){
+      if(/curriculum|resume|\bcv\b|profile|contact|address|email|phone/i.test(L)) continue;
+      if(/^[A-Za-z][A-Za-z' .\-]{2,39}$/.test(L)&&L.split(/\s+/).length<=4){ name=L; break; }
+    }
+  }
+  const ym=text.match(/(\d{1,2})\s*\+?\s*(?:years|yrs)/i); const yrs=ym?+ym[1]:null;
+  let role="",best=0;
+  for(const r of SYN_ROLES){ let sc=0; if(lt.includes(r.toLowerCase())) sc+=3; for(const kw of (ROLE_KEYWORDS[r]||[])) if(lt.includes(kw)) sc++; if(sc>best){ best=sc; role=r; } }
+  const skills=SKILL_DICT.filter(k=>lt.includes(k)).slice(0,8).join(", ");
+  return {name,email,phone,yrs,role:best>=1?role:"",skills,
+    conf:{name:!!name,email:!!email,phone:!!phone,yrs:yrs!=null,role:best>=2,skills:!!skills}};
+}
+function escHtml(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function parsedFormHTML(d){
+  const flag=k=>d.real&&d.conf&&!d.conf[k]?` <span style="color:var(--warn);font-size:10px">⚠ not found in CV — please check</span>`:"";
+  const banner=d.real
+    ?`<span class="pill ok">✓ Read from file (${d.method})</span><span style="font-size:11.5px;color:var(--slate-2)">Fields extracted from the document text. Review &amp; correct.</span>`
+    :`<span class="pill warn">⚠ Could not read file contents</span><span style="font-size:11.5px;color:var(--slate-2)">Scanned or unsupported file — simulated demo data shown (production would OCR it).</span>`;
+  return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">${banner}</div>
+    <div class="field"><label>Name${flag("name")}</label><input id="pName" value="${escHtml(d.name||"")}"></div>
+    <div class="field"><label>Email${flag("email")}</label><input id="pEmail" value="${escHtml(d.email||"")}"></div>
+    <div class="field"><label>Phone${flag("phone")}</label><input id="pPhone" value="${escHtml(d.phone||"")}"></div>
+    <div class="field"><label>Experience${flag("yrs")}</label><input id="pExp" value="${d.yrs!=null?d.yrs+" years":""}"></div>
+    <div class="field"><label>Detected role${flag("role")}</label><select id="pRole">${SYN_ROLES.map(r=>`<option ${r===d.role?'selected':''}>${r}</option>`).join("")}</select></div>
+    <div class="field"><label>Key skills${flag("skills")}</label><input id="pSkills" value="${escHtml(d.skills||"")}"></div>
+    ${d.real?`<details style="margin-top:4px"><summary style="cursor:pointer;font-size:12px;color:var(--slate-2)">Raw text read from the CV (${d.rawLen} chars)</summary><div style="font-family:var(--mono);font-size:11px;color:var(--slate);background:var(--panel-2);border:1px solid var(--line-2);border-radius:8px;padding:10px;max-height:180px;overflow:auto;white-space:pre-wrap;margin-top:6px">${escHtml(d.rawPreview)}</div></details>`:""}`;
+}
+function aiParseFlow(m,bodyEl,footEl,file,onConfirm,confirmLabel){
+  const reduce=window.matchMedia("(prefers-reduced-motion:reduce)").matches;
+  const steps=["Uploading &amp; scanning","Reading document text","Extracting entities (name, contact, experience)","Structuring &amp; storing fields"];
+  footEl.innerHTML="";
+  bodyEl.innerHTML=`<div style="font-family:var(--mono);font-size:11px;color:var(--slate-2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px">CV parsing · ${escHtml(file.name)}</div><div id="pSteps"></div>`;
+  const extraction=extractCvText(file);
+  const cont=bodyEl.querySelector("#pSteps");
+  let i=0;
+  (function tick(){
+    cont.innerHTML=steps.map((s,j)=>`<div class="sbstep ${j<i?'done':(j===i?'active':'')}"><span class="dot">${j<i?'✓':''}</span>${s}</div>`).join("");
+    if(i<steps.length){ i++; setTimeout(tick,reduce?0:430); }
+    else done();
+  })();
+  async function done(){
+    const ext=await extraction;
+    let d;
+    if(ext&&ext.text){
+      const raw=ext.text.replace(/[ \t]+/g," ").replace(/\n{3,}/g,"\n\n").trim();
+      const e=extractEntities(raw), fb=aiParseCV(file.name);
+      d={real:true,method:ext.method,conf:e.conf,cvText:raw.slice(0,3000),rawPreview:raw.slice(0,900),rawLen:raw.length,
+         name:e.name||fb.name,email:e.email||fb.email,phone:e.phone||fb.phone,yrs:e.yrs!=null?e.yrs:fb.yrs,role:e.role||fb.role,skills:e.skills||fb.skills};
+    } else { const fb=aiParseCV(file.name); d={...fb,real:false,cvText:""}; }
+    bodyEl.innerHTML=parsedFormHTML(d);
+    footEl.innerHTML=`<button class="btn ghost" id="pCancel">Cancel</button><button class="btn" id="pConfirm">${confirmLabel||"Confirm &amp; save to database"}</button>`;
+    footEl.querySelector("#pCancel").onclick=m.close;
+    footEl.querySelector("#pConfirm").onclick=()=>{
+      const g=s=>{const el=bodyEl.querySelector(s);return el?el.value.trim():"";};
+      onConfirm({name:g("#pName"),email:g("#pEmail"),phone:g("#pPhone"),exp:g("#pExp"),role:g("#pRole"),skills:g("#pSkills"),cvText:d.cvText,real:d.real});
+    };
+  }
+}
+function addCandidateModal(){
+  const m=openModal(`
+    <div style="background:var(--ink);color:#eaf1f8;padding:13px 18px;display:flex;align-items:center;gap:8px"><span>＋</span><b>Add candidate · upload CV</b><span style="margin-left:auto;font-family:var(--mono);font-size:10px;color:#9fb6cc;text-transform:uppercase;letter-spacing:.08em">AI extraction</span></div>
+    <div id="acBody" style="padding:18px 20px;overflow:auto">
+      <p style="margin:0 0 14px;font-size:12.5px;color:var(--slate-2)">For CVs from agencies, walk-ins or referrals. Upload the file — AI reads the details automatically. No manual typing.</p>
+      <div class="field"><label>CV file * (PDF / DOC)</label><input id="acCv" type="file" accept=".pdf,.doc,.docx"></div>
+      <div class="field"><label>Source *</label><select id="acSrc"><option>Agency</option><option>Walk-in</option><option>Referral</option><option>Direct (email)</option></select></div>
+      <div class="field"><label>Source detail</label><input id="acSrcD" placeholder="e.g. ABC Recruitment"></div>
+      <label style="display:flex;gap:8px;align-items:flex-start;font-size:12.5px;color:var(--ink-2)"><input type="checkbox" id="acConsent" style="margin-top:3px"> <span>Candidate's PDPA consent has been obtained. *</span></label>
+      <div id="acErr" class="note" style="color:var(--crit);display:none;margin-top:8px"></div>
+    </div>
+    <div id="acFoot" style="padding:14px 20px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--line-2)"><button class="btn ghost" data-close>Cancel</button><button class="btn" id="acParse">Upload &amp; extract ▶</button></div>`);
+  const body=m.ov.querySelector("#acBody"), foot=m.ov.querySelector("#acFoot");
+  m.ov.querySelector("#acParse").onclick=()=>{
+    const fEl=m.ov.querySelector("#acCv"), f=fEl.files&&fEl.files[0], err=m.ov.querySelector("#acErr");
+    if(!f){ err.textContent="Please choose a CV file."; err.style.display="block"; return; }
+    if(!m.ov.querySelector("#acConsent").checked){ err.textContent="PDPA consent confirmation is required."; err.style.display="block"; return; }
+    const src=m.ov.querySelector("#acSrc").value, srcD=m.ov.querySelector("#acSrcD").value.trim(), source=src+(srcD?" · "+srcD:"");
+    aiParseFlow(m,body,foot,f,(d)=>{
+      CANDIDATES.push({id:nextCandId(),name:d.name,role:d.role,exp:d.exp,stage:"screening",source,cv:f.name,email:d.email,phone:d.phone,skills:d.skills,cvText:d.cvText,parsed:d.real});
+      m.close(); renderRecruitment();
+    });
+  };
+}
+function intakePreview(){
+  const m=openModal(`
+    <div style="background:linear-gradient(135deg,#1f3a57,#2f5d8a);color:#fff;padding:22px 24px">
+      <div style="font-family:var(--mono);font-size:11px;letter-spacing:.1em;opacity:.85;text-transform:uppercase">Careers · [Your Company]</div>
+      <div style="font-size:22px;font-weight:700;margin-top:6px">Apply: Site Engineer</div>
+      <div style="font-size:12.5px;opacity:.85;margin-top:4px">Public page linked from your job ads. Just upload your CV — we read the details automatically. No forms to fill in.</div>
+    </div>
+    <div id="ikBody" style="padding:20px 24px;overflow:auto">
+      <div class="field"><label>Upload your CV * (PDF / DOC)</label><input id="ikCv" type="file" accept=".pdf,.doc,.docx"></div>
+      <div style="background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:12px 14px;font-size:11.5px;color:var(--slate);line-height:1.55;margin-bottom:12px"><b style="color:var(--ink-2)">Data protection notice.</b> The CV and personal data you submit are collected to evaluate your application, in accordance with the Personal Data Protection Act, and handled per our privacy policy.</div>
+      <label style="display:flex;gap:8px;align-items:flex-start;font-size:12.5px"><input type="checkbox" id="ikConsent" style="margin-top:3px"> <span>I consent to the collection and use of my personal data for this application. *</span></label>
+      <div id="ikErr" class="note" style="color:var(--crit);display:none;margin-top:8px"></div>
+    </div>
+    <div id="ikFoot" style="padding:14px 24px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--line-2)"><button class="btn ghost" data-close>Close preview</button><button class="btn" id="ikGo">Upload &amp; continue ▶</button></div>`,600);
+  const body=m.ov.querySelector("#ikBody"), foot=m.ov.querySelector("#ikFoot");
+  m.ov.querySelector("#ikGo").onclick=()=>{
+    const fEl=m.ov.querySelector("#ikCv"), f=fEl.files&&fEl.files[0], err=m.ov.querySelector("#ikErr");
+    if(!f){ err.textContent="Please upload your CV."; err.style.display="block"; return; }
+    if(!m.ov.querySelector("#ikConsent").checked){ err.textContent="Consent is required to submit."; err.style.display="block"; return; }
+    aiParseFlow(m,body,foot,f,(d)=>{
+      CANDIDATES.push({id:nextCandId(),name:d.name,role:d.role||"Site Engineer",exp:d.exp,stage:"screening",source:"Direct application",cv:f.name,email:d.email,phone:d.phone,skills:d.skills,cvText:d.cvText,parsed:d.real});
+      body.innerHTML=`<div style="text-align:center;padding:34px 12px"><div style="font-size:42px;color:var(--ok)">✓</div><div style="font-size:17px;font-weight:600;margin-top:8px">Application received</div><div style="font-size:13px;color:var(--slate-2);margin:6px auto 0;max-width:38ch">Thank you, ${d.name}. We read your CV and added your application to the screening queue.</div></div>`;
+      foot.innerHTML=`<button class="btn" id="ikDone">Done</button>`;
+      foot.querySelector("#ikDone").onclick=m.close;
+    },"Confirm &amp; submit application");
+  };
+}
+
+/* ---------- AGENTIC WORKFLOW DESIGNER ---------- */
+let recruitTab="candidates";
+const WF_LS="hrportal_wf_v1";
+const WF_CAT={intake:{c:"#0d7a83",l:"Intake"},ai:{c:"#a96b06",l:"AI agents"},human:{c:"#178254",l:"Human gates"},action:{c:"#3554e0",l:"Actions"},logic:{c:"#6d7789",l:"Logic"}};
+const WF_TYPES={
+  intake:{label:"CV Intake",cat:"intake",desc:"Entry point — application page or HR upload"},
+  parse:{label:"AI · Parse CV",cat:"ai",desc:"Extract fields from the CV (sandboxed)"},
+  screen:{label:"AI · Fit Score",cat:"ai",desc:"Deterministic score vs role profile"},
+  draft:{label:"AI · Draft Email",cat:"ai",desc:"Drafts a message for human review"},
+  cond:{label:"Condition · Fit ≥ 75",cat:"logic",desc:"Branches Yes / No on the fit score",two:true},
+  fcf:{label:"FCF Gate 🔒",cat:"logic",desc:"Holds flow until the 14-day window is served",guard:true},
+  review:{label:"Human Review",cat:"human",desc:"HR reviews before continuing"},
+  hirer:{label:"Hirer Response",cat:"human",desc:"Secure-link reply recorded (Yes/No)",two:true},
+  doa:{label:"Approval (DOA) 🔒",cat:"human",desc:"Named approver signs off",guard:true},
+  emailHirer:{label:"Email Hirer",cat:"action",desc:"Sends shortlist to the selected hirer"},
+  invite:{label:"Interview Invite",cat:"action",desc:"Auto-email to the candidate"},
+  offer:{label:"Send Offer",cat:"action",desc:"Official offer email + Employment Letter"},
+  record:{label:"Record Signed Letter",cat:"action",desc:"Files the letter — terminal",terminal:true},
+  reject:{label:"Reject & Log",cat:"action",desc:"Reason captured, retained ≥1 yr — terminal",terminal:true},
+};
+function wfDefault(){ return {nodes:[
+  {id:"n1",type:"intake",x:30,y:150},{id:"n2",type:"parse",x:225,y:150},{id:"n3",type:"screen",x:420,y:150},
+  {id:"n4",type:"cond",x:615,y:150},{id:"n5",type:"emailHirer",x:815,y:80},{id:"n6",type:"hirer",x:1010,y:80},
+  {id:"n7",type:"invite",x:1210,y:80},{id:"n8",type:"fcf",x:1405,y:80},{id:"n9",type:"doa",x:1600,y:80},
+  {id:"n10",type:"offer",x:1600,y:260},{id:"n11",type:"record",x:1405,y:340},{id:"n12",type:"reject",x:815,y:340}],
+ edges:[
+  {id:"e1",from:{n:"n1",port:"out"},to:"n2"},{id:"e2",from:{n:"n2",port:"out"},to:"n3"},{id:"e3",from:{n:"n3",port:"out"},to:"n4"},
+  {id:"e4",from:{n:"n4",port:"yes"},to:"n5"},{id:"e5",from:{n:"n4",port:"no"},to:"n12"},
+  {id:"e6",from:{n:"n5",port:"out"},to:"n6"},{id:"e7",from:{n:"n6",port:"yes"},to:"n7"},{id:"e8",from:{n:"n6",port:"no"},to:"n12"},
+  {id:"e9",from:{n:"n7",port:"out"},to:"n8"},{id:"e10",from:{n:"n8",port:"out"},to:"n9"},
+  {id:"e11",from:{n:"n9",port:"out"},to:"n10"},{id:"e12",from:{n:"n10",port:"out"},to:"n11"}]}; }
+let WF=(function(){ try{ const s=localStorage.getItem(WF_LS); if(s){ const o=JSON.parse(s); if(o&&o.nodes&&o.edges) return o; } }catch(e){} return wfDefault(); })();
+let wfSeq=(function(){ let mx=100; WF.nodes.concat(WF.edges).forEach(o=>{ const m=String(o.id).match(/\d+$/); if(m&&+m[0]>mx) mx=+m[0]; }); return mx; })();
+function saveWF(){ try{ localStorage.setItem(WF_LS,JSON.stringify(WF)); }catch(e){} }
+let wfSel=null, wfRunning=false;
+const wfState={dragging:null,connecting:null,placing:null,temp:null};
+const WF_SAMPLES=[
+  {name:"Sofia Rahman — strong CV",fit:91,fcfClear:false},
+  {name:"Marcus Tan — moderate CV",fit:78,fcfClear:true},
+  {name:"Walk-in — weak match",fit:58,fcfClear:true}];
+
+function designerHTML(){
+  const cats=["intake","ai","human","action","logic"];
+  const pal=cats.map(c=>`<div class="pal-cat">${WF_CAT[c].l}</div>`+
+    Object.entries(WF_TYPES).filter(([k,t])=>t.cat===c).map(([k,t])=>`<div class="pal-item" data-type="${k}" title="${t.desc}"><span class="pal-dot" style="background:${WF_CAT[c].c}"></span>${t.label}</div>`).join("")).join("");
+  return `
+  <div class="card" style="padding:12px 16px;margin-bottom:14px;font-size:13px;background:var(--info-bg);border-color:#d7defb"><b>Build your own agentic workflow:</b> drag nodes from the palette onto the canvas, connect them by dragging from a right-side port to a left-side port, then <b>Run test</b> to watch a candidate travel through. <b>Guardrails are enforced</b> — a workflow cannot reach "Send Offer" without an FCF Gate and a human approval on the path.</div>
+  <div class="wf-toolbar">
+    <button class="btn" id="wfRun">▶ Run test</button>
+    <select id="wfCand" aria-label="Test candidate" style="font:inherit;font-size:12.5px;padding:8px 9px;border:1px solid var(--line);border-radius:9px;background:#fff">${WF_SAMPLES.map((s,i)=>`<option value="${i}">${s.name}</option>`).join("")}</select>
+    <button class="btn ghost" id="wfClearRun">Clear run</button>
+    <button class="btn ghost" id="wfDelSel">🗑 Delete selected</button>
+    <button class="btn ghost" id="wfReset">Reset to default template</button>
+    <span class="note" style="margin:0">Saved automatically in this browser.</span>
+  </div>
+  <div class="wf-wrap">
+    <div class="wf-palette card" id="wfPal">${pal}<p class="note" style="margin-top:10px">Drag onto the canvas, or click to add.</p></div>
+    <div>
+      <div class="wf-canvas-outer"><div class="wf-canvas" id="wfCanvas"><svg class="wf-edges" id="wfSvg"></svg></div></div>
+      <div class="grid g-2" style="margin-top:12px">
+        <div class="card"><h3>🧪 Run log</h3><div class="wf-log" id="wfLog"><p class="note" style="margin:4px 0">Run a test to watch a candidate flow through your workflow. Human gates will pause and ask you to decide.</p></div></div>
+        <div class="card"><h3>✓ Workflow checks <span class="count">live</span></h3><div id="wfLint"></div></div>
+      </div>
+    </div>
+  </div>`;
+}
+function wfCanvasEl(){ return document.getElementById("wfCanvas"); }
+function wfNodeById(id){ return WF.nodes.find(n=>n.id===id); }
+function nodeEl(n){
+  const t=WF_TYPES[n.type], cat=WF_CAT[t.cat];
+  const el=document.createElement("div");
+  el.className="wf-node"; el.dataset.id=n.id;
+  el.style.left=n.x+"px"; el.style.top=n.y+"px";
+  el.innerHTML=`<div class="nh"><span class="pal-dot" style="background:${cat.c}"></span>${t.label}</div><div class="nd">${t.desc}</div>`
+    +(n.type!=="intake"?`<span class="port in" data-port="in"></span>`:"")
+    +(t.two?`<span class="port out yes" data-port="yes" title="Yes branch"></span><span class="port out no" data-port="no" title="No branch"></span>`
+      :(t.terminal?"":`<span class="port out" data-port="out"></span>`));
+  return el;
+}
+function wfPortPos(nodeId,port){
+  const c=wfCanvasEl(); if(!c) return null;
+  const el=c.querySelector(`.wf-node[data-id="${nodeId}"]`); if(!el) return null;
+  const x=el.offsetLeft,y=el.offsetTop,w=el.offsetWidth,h=el.offsetHeight;
+  if(port==="in") return {x:x,y:y+h/2};
+  if(port==="yes") return {x:x+w,y:y+h*0.35};
+  if(port==="no") return {x:x+w,y:y+h*0.72};
+  return {x:x+w,y:y+h/2};
+}
+function wfRedraw(){
+  const svg=document.getElementById("wfSvg"); if(!svg) return;
+  let html=WF.edges.map(e=>{
+    const a=wfPortPos(e.from.n,e.from.port), b=wfPortPos(e.to,"in");
+    if(!a||!b) return "";
+    const d=`M${a.x},${a.y} C${a.x+70},${a.y} ${b.x-70},${b.y} ${b.x},${b.y}`;
+    const sel=wfSel&&wfSel.kind==="edge"&&wfSel.id===e.id;
+    const col=sel?"#3554e0":(e.from.port==="no"?"#d3a1a3":"#98a1b3");
+    return `<path d="${d}" fill="none" stroke="transparent" stroke-width="14" data-ehit="${e.id}" style="pointer-events:stroke;cursor:pointer"/>`+
+           `<path d="${d}" fill="none" stroke="${col}" stroke-width="${sel?3:2}" style="pointer-events:none"/>`;
+  }).join("");
+  if(wfState.connecting&&wfState.temp){
+    const a=wfPortPos(wfState.connecting.from.n,wfState.connecting.from.port);
+    if(a) html+=`<path d="M${a.x},${a.y} C${a.x+60},${a.y} ${wfState.temp.x-60},${wfState.temp.y} ${wfState.temp.x},${wfState.temp.y}" fill="none" stroke="#3554e0" stroke-width="2" stroke-dasharray="5 4" style="pointer-events:none"/>`;
+  }
+  svg.innerHTML=html;
+  svg.querySelectorAll("[data-ehit]").forEach(p=>p.onclick=ev=>{ wfSel={kind:"edge",id:p.dataset.ehit}; wfRefreshSel(); ev.stopPropagation(); });
+}
+function wfRefreshSel(){
+  const c=wfCanvasEl(); if(!c) return;
+  c.querySelectorAll(".wf-node").forEach(el=>el.classList.toggle("sel",!!(wfSel&&wfSel.kind==="node"&&wfSel.id===el.dataset.id)));
+  wfRedraw();
+}
+function wfMountAll(){
+  const c=wfCanvasEl(); if(!c) return;
+  c.querySelectorAll(".wf-node").forEach(el=>el.remove());
+  WF.nodes.forEach(n=>c.appendChild(nodeEl(n)));
+  wfRedraw();
+}
+function wfAddNode(type,x,y){
+  const id="n"+(++wfSeq);
+  WF.nodes.push({id,type,x:Math.max(0,Math.min(1620,Math.round(x))),y:Math.max(0,Math.min(560,Math.round(y)))});
+  saveWF(); wfMountAll(); wfLintRun();
+}
+function wfAddEdge(from,to){
+  if(from.n===to) return;
+  if(WF_TYPES[wfNodeById(to)?.type]?.cat==="intake") return;
+  WF.edges=WF.edges.filter(e=>!(e.from.n===from.n&&e.from.port===from.port));
+  WF.edges.push({id:"e"+(++wfSeq),from,to});
+  saveWF(); wfLintRun();
+}
+function wfDeleteSelected(){
+  if(!wfSel) return;
+  if(wfSel.kind==="node"){
+    WF.nodes=WF.nodes.filter(n=>n.id!==wfSel.id);
+    WF.edges=WF.edges.filter(e=>e.from.n!==wfSel.id&&e.to!==wfSel.id);
+  } else WF.edges=WF.edges.filter(e=>e.id!==wfSel.id);
+  wfSel=null; saveWF(); wfMountAll(); wfLintRun();
+}
+function wfAncestors(nid){
+  const set=new Set(),stack=[nid];
+  while(stack.length){ const c=stack.pop(); WF.edges.filter(e=>e.to===c).forEach(e=>{ if(!set.has(e.from.n)){ set.add(e.from.n); stack.push(e.from.n); } }); }
+  return set;
+}
+function wfLintRun(){
+  const box=document.getElementById("wfLint"); if(!box) return;
+  const msgs=[]; let errors=0;
+  const intakes=WF.nodes.filter(n=>n.type==="intake");
+  if(!intakes.length){ msgs.push(["err","No CV Intake node — the workflow has no entry point. Run disabled."]); errors++; }
+  WF.nodes.filter(n=>n.type==="offer").forEach(o=>{
+    const anc=[...wfAncestors(o.id)].map(id=>wfNodeById(id)?.type);
+    if(!anc.includes("fcf")){ msgs.push(["err","\"Send Offer\" is not preceded by an FCF Gate — offers during the advertising window are unlawful. Run disabled."]); errors++; }
+    if(!anc.includes("doa")&&!anc.includes("review")){ msgs.push(["err","\"Send Offer\" has no human approval before it — human-in-the-loop is mandatory. Run disabled."]); errors++; }
+  });
+  WF.nodes.filter(n=>WF_TYPES[n.type].two).forEach(n=>["yes","no"].forEach(p=>{
+    if(!WF.edges.some(e=>e.from.n===n.id&&e.from.port===p)) msgs.push(["warn",`"${WF_TYPES[n.type].label}" is missing its ${p.toUpperCase()} branch — flow will stop there.`]);
+  }));
+  if(intakes.length){
+    const seen=new Set(intakes.map(n=>n.id)),stack=intakes.map(n=>n.id);
+    while(stack.length){ const c=stack.pop(); WF.edges.filter(e=>e.from.n===c).forEach(e=>{ if(!seen.has(e.to)){ seen.add(e.to); stack.push(e.to); } }); }
+    WF.nodes.filter(n=>!seen.has(n.id)).forEach(n=>msgs.push(["warn",`"${WF_TYPES[n.type].label}" is not connected from Intake.`]));
+  }
+  box.innerHTML=msgs.length?msgs.map(m=>`<div class="lint-item ${m[0]}">${m[0]==="err"?"⛔":"⚠"} <span>${m[1]}</span></div>`).join("")
+    :`<div class="lint-item okk">✓ All checks passed — guardrails satisfied. Ready to run.</div>`;
+  const btn=document.getElementById("wfRun"); if(btn) btn.disabled=errors>0||wfRunning;
+}
+function wfLog(msg,cls){
+  const log=document.getElementById("wfLog"); if(!log) return null;
+  if(log.querySelector(".note")) log.innerHTML="";
+  const div=document.createElement("div"); div.className="le"+(cls?" "+cls:""); div.innerHTML=msg;
+  log.appendChild(div); log.scrollTop=log.scrollHeight; return div;
+}
+function wfHumanChoice(prompt,labels){
+  return new Promise(res=>{
+    const div=wfLog(`👤 <b>${prompt}</b>`,"h"); if(!div){ res(0); return; }
+    labels.forEach((L,idx)=>{
+      const b=document.createElement("button");
+      b.className="btn"+(idx?" ghost":" ok");
+      b.style.cssText="padding:3px 10px;font-size:11px;margin-left:8px";
+      b.textContent=L;
+      b.onclick=()=>{ div.querySelectorAll("button").forEach(x=>x.remove()); div.innerHTML+=` → <b>${L}</b>`; res(idx); };
+      div.appendChild(b);
+    });
+  });
+}
+function wfSetState(id,state){
+  const c=wfCanvasEl(); if(!c) return;
+  const el=c.querySelector(`.wf-node[data-id="${id}"]`); if(!el) return;
+  el.classList.remove("exec"); if(state==="exec") el.classList.add("exec"); if(state==="done") el.classList.add("done-n");
+}
+function wfClearRun(){
+  const c=wfCanvasEl(); if(c) c.querySelectorAll(".wf-node").forEach(el=>el.classList.remove("exec","done-n"));
+  const log=document.getElementById("wfLog"); if(log) log.innerHTML=`<p class="note" style="margin:4px 0">Run a test to watch a candidate flow through your workflow.</p>`;
+}
+async function wfRunSim(){
+  if(wfRunning) return;
+  wfRunning=true; wfLintRun();
+  wfClearRun();
+  const sel=document.getElementById("wfCand");
+  const s=WF_SAMPLES[+(sel?sel.value:0)];
+  const reduce=window.matchMedia("(prefers-reduced-motion:reduce)").matches;
+  const wait=ms=>new Promise(r=>setTimeout(r,reduce?0:ms));
+  wfLog(`▶ <b>Test run</b> — ${s.name} (fit ${s.fit}${s.fcfClear?"":", FCF window still open"})`);
+  let cur=WF.nodes.find(n=>n.type==="intake"), hops=0;
+  while(cur&&hops++<50){
+    wfSetState(cur.id,"exec"); await wait(600);
+    const t=WF_TYPES[cur.type]; let port="out", jump=null, stop=false;
+    switch(cur.type){
+      case "intake": wfLog("📥 CV received via intake"); break;
+      case "parse": wfLog("🤖 CV parsed — fields extracted (sandboxed, de-identified)"); break;
+      case "screen": wfLog(`🤖 Fit score computed: <b>${s.fit}</b>`); break;
+      case "draft": wfLog("🤖 Email drafted — held for a human/action node"); break;
+      case "cond": port=s.fit>=75?"yes":"no"; wfLog(`◆ Fit ≥ 75 → <b>${port.toUpperCase()}</b> (${s.fit})`); break;
+      case "fcf":
+        if(s.fcfClear) wfLog("✓ FCF Gate: advertising window already served — pass");
+        else { wfLog("⛔ FCF Gate: window still open — flow <b>HELD</b>…"); await wait(900); wfLog("… window served (simulated) — released"); }
+        break;
+      case "hirer": { const ch=await wfHumanChoice("Hirer response?",["✓ Interested","✕ Pass"]); port=ch===0?"yes":"no"; } break;
+      case "review": case "doa": {
+        const ch=await wfHumanChoice(`${t.label.replace(" 🔒","")} — approve ${s.name.split(" —")[0]}?`,["✓ Approve","✕ Reject"]);
+        if(ch!==0){ jump=WF.nodes.find(n=>n.type==="reject")||null; if(!jump){ wfLog("■ Rejected, and no Reject node exists — flow ends."); stop=true; } }
+        break; }
+      case "emailHirer": wfLog("✉ Shortlist emailed to hirer (secure one-time link)"); break;
+      case "invite": wfLog("✉ Interview invitation emailed to candidate"); break;
+      case "offer": wfLog("✉ Official offer sent + Employment Letter generated"); break;
+      case "record": wfLog("📁 Signed letter recorded — candidate <b>HIRED</b> ✅"); stop=true; break;
+      case "reject": wfLog("🗂 Rejected — reason logged (retained ≥1 yr)"); stop=true; break;
+    }
+    wfSetState(cur.id,"done");
+    if(stop) break;
+    if(jump){ cur=jump; continue; }
+    let edge=WF.edges.find(e=>e.from.n===cur.id&&e.from.port===port);
+    if(!edge&&port==="out") edge=WF.edges.find(e=>e.from.n===cur.id);
+    if(!edge){ wfLog(`■ Flow ends — nothing connected after "${t.label}".`); break; }
+    cur=wfNodeById(edge.to);
+  }
+  wfLog("— run complete —");
+  wfRunning=false; wfLintRun();
+}
+let wfGlobalsBound=false;
+function initDesigner(){
+  const canvas=wfCanvasEl(); if(!canvas) return;
+  wfMountAll(); wfLintRun();
+  const cpos=ev=>{ const r=canvas.getBoundingClientRect(); return {x:ev.clientX-r.left,y:ev.clientY-r.top}; };
+  canvas.addEventListener("pointerdown",e=>{
+    const port=e.target.closest(".port");
+    if(port){
+      if(port.dataset.port==="in") return;
+      wfState.connecting={from:{n:port.closest(".wf-node").dataset.id,port:port.dataset.port}};
+      e.preventDefault(); return;
+    }
+    const node=e.target.closest(".wf-node");
+    if(node){
+      wfSel={kind:"node",id:node.dataset.id}; wfRefreshSel();
+      const p=cpos(e), n=wfNodeById(node.dataset.id);
+      wfState.dragging={id:n.id,ox:p.x-n.x,oy:p.y-n.y};
+      e.preventDefault(); return;
+    }
+    wfSel=null; wfRefreshSel();
+  });
+  document.getElementById("wfRun").onclick=wfRunSim;
+  document.getElementById("wfClearRun").onclick=wfClearRun;
+  document.getElementById("wfDelSel").onclick=wfDeleteSelected;
+  document.getElementById("wfReset").onclick=()=>{ WF=wfDefault(); wfSel=null; saveWF(); wfMountAll(); wfLintRun(); wfClearRun(); };
+  document.querySelectorAll("#wfPal .pal-item").forEach(it=>{
+    it.addEventListener("pointerdown",e=>{ wfState.placing={type:it.dataset.type,moved:false}; e.preventDefault(); });
+  });
+  if(!wfGlobalsBound){
+    wfGlobalsBound=true;
+    document.addEventListener("pointermove",e=>{
+      const c=wfCanvasEl(); if(!c) return;
+      const r=c.getBoundingClientRect(); const p={x:e.clientX-r.left,y:e.clientY-r.top};
+      if(wfState.dragging){
+        const n=wfNodeById(wfState.dragging.id); if(!n) return;
+        n.x=Math.max(0,Math.min(1620,p.x-wfState.dragging.ox));
+        n.y=Math.max(0,Math.min(560,p.y-wfState.dragging.oy));
+        const el=c.querySelector(`.wf-node[data-id="${n.id}"]`);
+        if(el){ el.style.left=n.x+"px"; el.style.top=n.y+"px"; }
+        wfRedraw();
+      } else if(wfState.connecting){ wfState.temp=p; wfRedraw(); }
+      else if(wfState.placing){ wfState.placing.moved=true; }
+    });
+    document.addEventListener("pointerup",e=>{
+      const c=wfCanvasEl();
+      if(wfState.connecting){
+        const t=document.elementFromPoint(e.clientX,e.clientY);
+        const ip=t&&t.closest?t.closest(".port.in"):null;
+        if(ip) wfAddEdge(wfState.connecting.from,ip.closest(".wf-node").dataset.id);
+        wfState.connecting=null; wfState.temp=null; wfRedraw();
+      }
+      if(wfState.dragging){ wfState.dragging=null; saveWF(); }
+      if(wfState.placing){
+        if(c){
+          const r=c.getBoundingClientRect();
+          const inside=e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom;
+          if(inside) wfAddNode(wfState.placing.type,e.clientX-r.left-85,e.clientY-r.top-28);
+          else if(!wfState.placing.moved) wfAddNode(wfState.placing.type,60+((WF.nodes.length*36)%420),440);
+        }
+        wfState.placing=null;
+      }
+    });
+    document.addEventListener("keydown",e=>{
+      if((e.key==="Delete"||e.key==="Backspace")&&wfCanvasEl()&&wfSel&&!/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)){
+        wfDeleteSelected(); e.preventDefault();
+      }
+    });
+  }
+}
+
+/* ---------- APPROVALS ---------- */
+let apTab="pending";
+function tierPill(t){ const m={manager:"info",head:"warn",director:"crit"}; return `<span class="pill ${m[t]}">DOA: ${TIERS[t].label}</span>`; }
+function renderApprovals(){
+  const myRank=roleRank(role);
+  const pending=APPROVALS.filter(a=>a.status==="pending");
+  const mineN=pending.filter(a=>TIERS[a.tier].rank<=myRank).length;
+  const escN=pending.length-mineN;
+  const actioned=APPROVALS.filter(a=>a.status!=="pending");
+  let h=`<div class="page-head"><h1>✓ Approvals</h1><p>Maker-checker &amp; DOA queue — the maker (AI or an Executive) prepares; you are the checker. Every decision is logged to the audit trail.</p></div>`;
+  h+=`<div class="grid g-kpi" style="margin-bottom:16px">
+    <div class="card tile info"><div class="lab">Pending</div><div class="val">${pending.length}</div><div class="sub">in the queue</div></div>
+    <div class="card tile warn"><div class="lab">Awaiting you</div><div class="val">${mineN}</div><div class="sub">within your DOA authority</div></div>
+    <div class="card tile crit"><div class="lab">Above your authority</div><div class="val">${escN}</div><div class="sub">must escalate</div></div>
+    <div class="card tile ok"><div class="lab">Actioned</div><div class="val">${actioned.length}</div><div class="sub">this session</div></div>
+  </div>`;
+  h+=`<div class="tabs"><button class="tab ${apTab==='pending'?'active':''}" data-ap="pending">Pending (${pending.length})</button><button class="tab ${apTab==='actioned'?'active':''}" data-ap="actioned">Actioned (${actioned.length})</button></div>`;
+  h+=`<div class="card" id="apBody"></div>`;
+  h+=`<p class="note">DOA tier is shown per item. Items above your authority route upward instead of being decided here. In production every decision &amp; comment is written to the immutable audit log.</p>`;
+  main.innerHTML=h;
+  main.querySelectorAll("[data-ap]").forEach(b=>b.onclick=()=>{apTab=b.dataset.ap;renderApprovals();});
+  renderApBody();
+}
+function renderApBody(){
+  const body=document.getElementById("apBody"); if(!body) return;
+  const myRank=roleRank(role);
+  if(apTab==="pending"){
+    const pending=APPROVALS.filter(a=>a.status==="pending");
+    if(!pending.length){ body.innerHTML=`<p class="note">Queue is clear.</p>`; return; }
+    body.innerHTML=pending.map(a=>{
+      const sev=a.tier==="director"?"crit":(a.tier==="head"?"warn":"info");
+      const can=TIERS[a.tier].rank<=myRank;
+      const actions=can
+        ? `<button class="btn ghost" data-apact="reject" data-id="${a.id}" style="padding:6px 11px;font-size:12px">Reject</button><button class="btn ok" data-apact="approve" data-id="${a.id}" style="padding:6px 11px;font-size:12px">Approve</button>`
+        : `<span style="font-size:11px;color:var(--slate-2);margin-right:6px">Above your authority</span><button class="btn" data-apact="escalate" data-id="${a.id}" style="padding:6px 11px;font-size:12px">Escalate to ${TIERS[a.tier].label}</button>`;
+      return `<div class="alert ${sev}"><div class="stripe"></div>
+        <div><div class="at">${a.title} &nbsp;${tierPill(a.tier)}</div><div class="ad">${a.detail} · maker: ${a.who} · impact: ${a.impact}</div></div>
+        <div class="meta" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end">${actions}</div></div>`;
+    }).join("");
+    body.querySelectorAll("[data-apact]").forEach(b=>b.onclick=()=>apAction(b.dataset.apact,b.dataset.id));
+  } else {
+    const act=APPROVALS.filter(a=>a.status!=="pending");
+    if(!act.length){ body.innerHTML=`<p class="note">No decisions yet this session.</p>`; return; }
+    body.innerHTML=`<div class="tblscroll"><table class="dt"><tr><th>Item</th><th>DOA tier</th><th>Decision</th><th>By</th><th>When</th><th>Note</th></tr>`+
+      act.map(a=>{ const sp=a.status==="approved"?'<span class="pill ok">Approved</span>':a.status==="rejected"?'<span class="pill crit">Rejected</span>':'<span class="pill warn">Escalated</span>';
+        return `<tr><td>${a.title}</td><td>${TIERS[a.tier].label}</td><td>${sp}</td><td>${a.actor||'—'}</td><td class="mono">${a.when||ASOF}</td><td>${a.reason||'—'}</td></tr>`;}).join("")+
+      `</table></div>`;
+  }
+}
+function apAction(act,id){
+  const a=APPROVALS.find(x=>x.id===id); if(!a) return;
+  if(act==="approve"){ a.status="approved"; a.actor=ROLES[role].name; a.when=ASOF; a.reason="Approved"; renderApprovals(); }
+  else if(act==="escalate"){ a.status="escalated"; a.actor=ROLES[role].name; a.when=ASOF; a.reason="Routed to "+TIERS[a.tier].label; renderApprovals(); }
+  else if(act==="reject"){
+    const m=openModal(`
+      <div style="background:var(--ink);color:#eaf1f8;padding:13px 18px;display:flex;align-items:center;gap:8px"><span>✕</span><b>Reject — ${a.title}</b></div>
+      <div style="padding:18px 20px"><div class="field"><label>Reason for rejection *</label><textarea id="apReason" rows="3" style="width:100%;font-family:inherit;font-size:14px;padding:9px 10px;border:1px solid var(--line);border-radius:7px"></textarea></div><div id="apErr" class="note" style="color:var(--crit);display:none;margin-top:4px"></div></div>
+      <div style="padding:14px 20px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--line-2)"><button class="btn ghost" data-close>Cancel</button><button class="btn warn-b" id="apConfirm">Confirm rejection</button></div>`);
+    m.ov.querySelector("#apConfirm").onclick=()=>{
+      const v=m.ov.querySelector("#apReason").value.trim();
+      if(!v){ const e=m.ov.querySelector("#apErr"); e.textContent="A reason is required to reject."; e.style.display="block"; return; }
+      a.status="rejected"; a.actor=ROLES[role].name; a.when=ASOF; a.reason=v; m.close(); renderApprovals();
+    };
+  }
+}
+
+/* =================== boot =================== */
+document.getElementById("roleSel").addEventListener("change",e=>{
+  role=e.target.value; chatLog=[]; view="dashboard"; render();
+});
+render();
+</script>

@@ -1,0 +1,416 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HR Portal — Technical Architecture &amp; Data-Flow Spec</title>
+<style>
+  :root {
+    --ink:#14202e; --ink-2:#243446; --slate:#4a5a6c; --slate-2:#6b7a8a;
+    --line:#d8dee6; --line-2:#e8edf2; --paper:#f4f6f9; --paper-2:#fbfcfd; --white:#fff;
+    --steel:#2f5d8a; --steel-soft:#e4edf5; --steel-2:#3f7bb0;
+    --trust:#1f7a52; --trust-bg:#e8f5ee; --trust-line:#9fcfb4;
+    --danger:#9c2a2a; --danger-bg:#f8e7e7; --danger-line:#e3b3b3;
+    --warn:#b5740a; --warn-bg:#fbeed5;
+    --mono:ui-monospace,"Cascadia Code","Consolas","SF Mono",Menlo,monospace;
+    --sans:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1060px;margin:0 auto;padding:0 24px 96px;}
+
+  header.mast{background:var(--ink);color:#eef3f8;
+    background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);
+    background-size:26px 26px;border-bottom:3px solid var(--steel);}
+  .mast-inner{max-width:1060px;margin:0 auto;padding:40px 24px 34px;}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#8fb4d6;margin:0 0 14px;}
+  h1.title{font-size:clamp(28px,4.4vw,44px);line-height:1.08;margin:0 0 16px;font-weight:700;letter-spacing:-.01em;text-wrap:balance;color:var(--white);}
+  .lede{max-width:66ch;color:#c4d3e1;font-size:17px;margin:0;}
+  .mast-meta{margin-top:22px;display:flex;flex-wrap:wrap;gap:8px;}
+  .tag{font-family:var(--mono);font-size:11.5px;letter-spacing:.04em;color:#cfe0ef;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.16);border-radius:4px;padding:4px 9px;}
+
+  section{margin-top:54px;}
+  .sec-head{border-bottom:2px solid var(--ink);padding-bottom:10px;margin-bottom:18px;}
+  .sec-num{font-family:var(--mono);font-size:13px;color:var(--steel);letter-spacing:.12em;font-weight:600;}
+  h2{font-size:clamp(21px,3vw,28px);margin:4px 0 0;letter-spacing:-.01em;}
+  .sec-sub{color:var(--slate);margin:10px 0 0;max-width:72ch;}
+  h3.sub{font-size:17px;margin:26px 0 8px;color:var(--ink-2);}
+  p{margin:0 0 12px;}
+  .body p{max-width:74ch;}
+
+  /* principle cards */
+  .principles{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:8px;}
+  .pcard{background:var(--white);border:1px solid var(--line);border-radius:8px;padding:16px 18px;border-top:4px solid var(--steel);}
+  .pcard h4{margin:0 0 6px;font-size:15px;}
+  .pcard p{margin:0;font-size:13.5px;color:var(--slate);}
+
+  /* diagram frame */
+  .diagram{background:var(--white);border:1px solid var(--line);border-radius:10px;padding:22px;margin:18px 0;overflow-x:auto;}
+  .diagram .cap{font-family:var(--mono);font-size:11.5px;color:var(--slate-2);letter-spacing:.06em;text-transform:uppercase;margin-bottom:16px;}
+  .flow{display:flex;align-items:stretch;gap:0;min-width:min-content;}
+  .node{background:var(--steel-soft);border:1px solid #bcd3e6;border-radius:8px;padding:12px 14px;min-width:140px;flex:0 0 auto;display:flex;flex-direction:column;justify-content:center;}
+  .node .nt{font-weight:600;font-size:14px;color:var(--ink);}
+  .node .nd{font-size:12px;color:var(--slate);margin-top:3px;line-height:1.4;}
+  .node.mono .nt{font-family:var(--mono);font-size:13px;}
+  .node.store{background:#eef1f4;border-color:#cdd6df;}
+  .node.ai{background:var(--warn-bg);border-color:#ecd6a3;}
+  .node.ext{background:#eceff2;border-color:#cdd6df;border-style:dashed;}
+  .arrow{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 6px;min-width:64px;}
+  .arrow .lbl{font-family:var(--mono);font-size:10px;color:var(--slate-2);text-align:center;margin-bottom:2px;line-height:1.25;}
+  .arrow .ln{font-size:20px;color:var(--steel-2);line-height:1;}
+
+  /* layered stack */
+  .layers{display:flex;flex-direction:column;gap:8px;}
+  .layer{border-radius:8px;padding:14px 18px;border:1px solid var(--line);}
+  .layer .ll{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--slate-2);margin-bottom:8px;}
+  .layer .items{display:flex;flex-wrap:wrap;gap:8px;}
+  .pill{background:var(--white);border:1px solid var(--line);border-radius:6px;padding:6px 11px;font-size:13px;}
+  .pill b{color:var(--ink);} .pill span{color:var(--slate-2);font-family:var(--mono);font-size:11px;}
+  .layer.l1{background:#eef4fa;} .layer.l2{background:#f0f6f1;} .layer.l3{background:#faf4ea;}
+  .layer.l4{background:#f3eff7;} .layer.l5{background:#f1f3f5;}
+
+  /* trust boundary */
+  .trustwrap{display:grid;grid-template-columns:1fr auto 1fr;gap:0;align-items:stretch;min-width:min-content;}
+  .zone{border-radius:10px;padding:18px;}
+  .zone.in{background:var(--trust-bg);border:2px solid var(--trust-line);}
+  .zone.out{background:var(--danger-bg);border:2px dashed var(--danger-line);}
+  .zone .zt{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;margin-bottom:12px;}
+  .zone.in .zt{color:var(--trust);} .zone.out .zt{color:var(--danger);}
+  .zbox{background:var(--white);border:1px solid var(--line);border-radius:7px;padding:10px 12px;margin-bottom:8px;font-size:13px;}
+  .zbox b{display:block;margin-bottom:2px;}
+  .zbox span{font-size:12px;color:var(--slate);}
+  .gateway{align-self:center;background:var(--ink);color:#eef3f8;border-radius:9px;padding:16px 14px;margin:0 16px;min-width:150px;text-align:center;}
+  .gateway .gt{font-weight:700;font-size:14px;margin-bottom:8px;}
+  .gateway ul{margin:0;padding:0;list-style:none;text-align:left;}
+  .gateway li{font-size:11.5px;color:#bcd0e2;margin:5px 0;padding-left:14px;position:relative;}
+  .gateway li::before{content:"✓";position:absolute;left:0;color:#6fc79a;}
+
+  /* tables */
+  .tbl{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px;overflow:hidden;border-radius:8px;border:1px solid var(--line);}
+  .tbl th{background:var(--ink);color:#fff;text-align:left;padding:10px 13px;font-size:13px;font-weight:600;}
+  .tbl td{padding:9px 13px;border-top:1px solid var(--line-2);vertical-align:top;}
+  .tbl tr:nth-child(even) td{background:var(--paper-2);}
+  .tbl td.k{font-weight:600;color:var(--ink);white-space:nowrap;}
+  .tbl td .m{font-family:var(--mono);font-size:12.5px;color:var(--steel);}
+  .tblscroll{overflow-x:auto;}
+
+  ul.clean{margin:8px 0 12px;padding-left:20px;}
+  ul.clean li{margin:6px 0;max-width:74ch;}
+  ul.clean li b{color:var(--ink-2);}
+
+  .callout{border-radius:9px;padding:16px 18px;margin:16px 0;font-size:14px;}
+  .callout.rec{background:var(--trust-bg);border:1px solid var(--trust-line);}
+  .callout.warn{background:var(--warn-bg);border:1px solid #ecd6a3;}
+  .callout b{color:var(--ink);}
+  .callout .h{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;display:block;margin-bottom:6px;}
+  .callout.rec .h{color:var(--trust);} .callout.warn .h{color:var(--warn);}
+
+  .seq{display:flex;flex-direction:column;gap:2px;}
+  .step{display:grid;grid-template-columns:34px 1fr;gap:14px;align-items:start;padding:10px 0;border-top:1px solid var(--line-2);}
+  .step:first-child{border-top:none;}
+  .step .n{font-family:var(--mono);font-weight:700;color:var(--white);background:var(--steel);border-radius:6px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:13px;}
+  .step .c{font-size:14px;} .step .c b{color:var(--ink);}
+  .step.gate .n{background:var(--danger);}
+  .step.gate .c b{color:var(--danger);}
+
+  footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--line);font-size:12.5px;color:var(--slate-2);}
+  code{font-family:var(--mono);font-size:.88em;background:var(--steel-soft);padding:1px 5px;border-radius:3px;color:var(--ink-2);}
+  @media(max-width:720px){.trustwrap{grid-template-columns:1fr;}.gateway{margin:14px 0;}}
+</style>
+
+<header class="mast">
+  <div class="mast-inner">
+    <p class="eyebrow">HR Portal · Technical Architecture</p>
+    <h1 class="title">Architecture, Data Flow &amp; the AI&ndash;PII Sandbox</h1>
+    <p class="lede">How the system is built: a cost-aware sync off your existing HRIQ&ndash;to&ndash;Excel extraction, a Python-first stack, Singapore-resident hosting, and a hard wall between personal data and any AI model.</p>
+    <div class="mast-meta">
+      <span class="tag">Batch sync, not paid API</span>
+      <span class="tag">PDPA · SG residency</span>
+      <span class="tag">AI sandboxed from PII</span>
+      <span class="tag">Human-in-the-loop</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- 1 PRINCIPLES -->
+  <section class="body">
+    <div class="sec-head"><span class="sec-num">01 / FOUNDATIONS</span><h2>Five architectural decisions</h2></div>
+    <p class="sec-sub">Everything downstream follows from these. Two are shaped by your constraints — the HRIQ API cost and PDPA — and the rest enforce the human-accountability model from the requirements spec.</p>
+    <div class="principles">
+      <div class="pcard"><h4>Sync, don't call</h4><p>The Portal reads from its <em>own</em> database, kept current by scheduled batch extraction from HRIQ. The expensive live API is avoided except for rare, high-value writes.</p></div>
+      <div class="pcard"><h4>Python-first</h4><p>Backend in Python to reuse your existing extraction scripts and team familiarity. Your scripts become the ingestion backbone, not throwaway tooling.</p></div>
+      <div class="pcard"><h4>AI is sandboxed</h4><p>A model never sees raw personal data it doesn't need, and never performs statutory or financial math. A gateway scrubs every prompt that crosses the trust boundary.</p></div>
+      <div class="pcard"><h4>Deterministic core</h4><p>Payroll, levy, CPF, encashment and compensation run as tested Python code with traceable breakdowns — never an LLM.</p></div>
+      <div class="pcard"><h4>SG-resident &amp; sealed</h4><p>Personal data is hosted in-region, the Portal is not publicly routable, and every action is written to an immutable audit log.</p></div>
+    </div>
+  </section>
+
+  <!-- 2 HRIQ DATA STRATEGY -->
+  <section class="body">
+    <div class="sec-head"><span class="sec-num">02 / DATA SOURCING</span><h2>The HRIQ sync pattern</h2></div>
+    <p class="sec-sub">Your existing Python-to-Excel extraction is productionised into a scheduled pipeline. Extracted files land in a secure zone, are validated against a schema, then loaded into the Portal's operational store. The Portal queries that store — fast, and free of per-call API charges.</p>
+
+    <div class="diagram">
+      <div class="cap">Figure 1 · Inbound data flow — scheduled batch ingestion</div>
+      <div class="flow">
+        <div class="node ext"><div class="nt">HRIQ</div><div class="nd">HRIS of record</div></div>
+        <div class="arrow"><span class="lbl">scheduled<br>Python extract</span><span class="ln">&rarr;</span></div>
+        <div class="node mono"><div class="nt">Extractor</div><div class="nd">your scripts, productionised &amp; scheduled</div></div>
+        <div class="arrow"><span class="lbl">Excel / CSV</span><span class="ln">&rarr;</span></div>
+        <div class="node store"><div class="nt">Landing zone</div><div class="nd">encrypted, access-locked</div></div>
+        <div class="arrow"><span class="lbl">validate +<br>transform</span><span class="ln">&rarr;</span></div>
+        <div class="node store"><div class="nt">Portal DB</div><div class="nd">PostgreSQL — synced copy</div></div>
+        <div class="arrow"><span class="lbl">query</span><span class="ln">&rarr;</span></div>
+        <div class="node"><div class="nt">Portal app</div><div class="nd">dashboards, AI services</div></div>
+      </div>
+    </div>
+
+    <h3 class="sub">Cadence &amp; freshness</h3>
+    <ul class="clean">
+      <li><b>Scheduled runs</b> — e.g. nightly full sync plus intra-day deltas for time-sensitive data (permits, attendance, OT). Tunable per dataset.</li>
+      <li><b>Validation gate</b> — each import is checked for schema, row counts and anomalies before it replaces live data; a failed import is quarantined, not loaded.</li>
+      <li><b>Staleness indicator</b> — every dashboard shows "data as of &lt;timestamp&gt;" so HR never acts on stale figures unknowingly.</li>
+    </ul>
+
+    <h3 class="sub">Write-back (when a change must return to HRIQ)</h3>
+    <ul class="clean">
+      <li><b>Default:</b> the Portal generates a formatted import file (the same format HRIQ already accepts) for a human to upload — no API cost, human-gated.</li>
+      <li><b>Selective API:</b> reserve paid API writes only for low-volume, high-value cases where file import is impractical. Metered and logged.</li>
+    </ul>
+
+    <div class="callout warn"><span class="h">⚠ PDPA consequence</span>Because the Portal keeps a <b>synced copy</b> of personal data, that database is squarely in PDPA scope. It must carry the same retention, access-control and breach obligations as HRIQ itself — see §6.</div>
+  </section>
+
+  <!-- 3 SYSTEM ARCHITECTURE -->
+  <section class="body">
+    <div class="sec-head"><span class="sec-num">03 / SYSTEM</span><h2>Layered architecture</h2></div>
+    <p class="sec-sub">A conventional, boring-on-purpose layered design. Boring is correct for a compliance system — every layer is independently testable and the trust boundaries are explicit.</p>
+    <div class="diagram">
+      <div class="cap">Figure 2 · Logical layers</div>
+      <div class="layers">
+        <div class="layer l1"><div class="ll">Presentation — HR-only, behind SSO</div><div class="items">
+          <span class="pill"><b>Role dashboards</b> <span>web</span></span>
+          <span class="pill"><b>Approval &amp; case UI</b></span>
+          <span class="pill"><b>Document review</b></span>
+          <span class="pill"><b>Knowledge assistant chat</b></span>
+        </div></div>
+        <div class="layer l2"><div class="ll">Application / API — auth, RBAC, orchestration</div><div class="items">
+          <span class="pill"><b>API gateway</b> <span>FastAPI</span></span>
+          <span class="pill"><b>RBAC + session</b> <span>incl. coverage mode</span></span>
+          <span class="pill"><b>Workflow / approvals engine</b></span>
+          <span class="pill"><b>Notification service</b> <span>email/Teams</span></span>
+          <span class="pill"><b>Audit logger</b></span>
+        </div></div>
+        <div class="layer l3"><div class="ll">Domain services</div><div class="items">
+          <span class="pill"><b>Compliance monitor</b></span>
+          <span class="pill"><b>Calculation engine</b> <span>deterministic</span></span>
+          <span class="pill"><b>Report builder</b></span>
+          <span class="pill"><b>Document generator</b></span>
+        </div></div>
+        <div class="layer l4"><div class="ll">AI layer — via the sandbox gateway only (§5)</div><div class="items">
+          <span class="pill"><b>AI gateway</b> <span>scrub+log</span></span>
+          <span class="pill"><b>Drafting</b></span>
+          <span class="pill"><b>Retrieval / RAG</b></span>
+          <span class="pill"><b>Classification / triage</b></span>
+        </div></div>
+        <div class="layer l5"><div class="ll">Data &amp; integration</div><div class="items">
+          <span class="pill"><b>PostgreSQL</b> <span>operational</span></span>
+          <span class="pill"><b>Object store</b> <span>documents/scans</span></span>
+          <span class="pill"><b>Vector store</b> <span>regs/SOPs only</span></span>
+          <span class="pill"><b>Ingestion / extractor</b></span>
+          <span class="pill"><b>Audit log</b> <span>append-only</span></span>
+        </div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 STACK -->
+  <section class="body">
+    <div class="sec-head"><span class="sec-num">04 / STACK</span><h2>Recommended technology</h2></div>
+    <p class="sec-sub">Chosen for PDPA fit, your Python capability, and longevity over novelty. All mainstream and hireable — important for the maintenance-ownership concern.</p>
+    <div class="tblscroll">
+    <table class="tbl">
+      <tr><th>Layer</th><th>Recommendation</th><th>Why</th></tr>
+      <tr><td class="k">Frontend</td><td><span class="m">React + TypeScript</span> (Next.js)</td><td>Mature, component-driven, accessible; easy to find developers.</td></tr>
+      <tr><td class="k">Backend</td><td><span class="m">Python + FastAPI</span></td><td>Reuses your existing extraction scripts &amp; team skills; fast, typed, well-documented.</td></tr>
+      <tr><td class="k">Database</td><td><span class="m">PostgreSQL</span></td><td>Relational integrity for payroll/audit; row-level security supports RBAC; strong encryption &amp; backup tooling.</td></tr>
+      <tr><td class="k">Background jobs</td><td><span class="m">Celery</span> or <span class="m">APScheduler</span> + Redis</td><td>Runs scheduled extraction, monitoring scans, report generation.</td></tr>
+      <tr><td class="k">Object storage</td><td>Encrypted blob store (scanned passports, medical records, letters)</td><td>Keeps large/sensitive files out of the relational DB; per-object access control.</td></tr>
+      <tr><td class="k">Calculation engine</td><td>Pure Python module, <span class="m">100% unit-tested</span></td><td>Deterministic statutory/financial math, isolated from AI and from the web layer.</td></tr>
+      <tr><td class="k">Auth / SSO</td><td><span class="m">OIDC / SAML</span> (e.g. Microsoft Entra ID) + MFA</td><td>Likely already your corporate identity; restrict to the HR security group.</td></tr>
+      <tr><td class="k">AI gateway</td><td>Internal service wrapping the model API</td><td>Single chokepoint for PII scrubbing, logging, purpose checks (§5).</td></tr>
+      <tr><td class="k">LLM</td><td>Region-hosted, no-training endpoint <span class="m">(e.g. Azure OpenAI SG)</span> or self-hosted open model for sensitive flows</td><td>Keeps inference in-region under a data-processing agreement; never a consumer endpoint.</td></tr>
+    </table>
+    </div>
+    <div class="callout rec"><span class="h">✓ Recommendation</span>If you are a Microsoft/Office shop (Windows + likely M365), the path of least resistance is <b>Entra ID</b> for SSO and <b>Azure (Singapore region)</b> for hosting + Azure OpenAI — identity, residency and the AI endpoint all in one governed tenancy. AWS <span class="m">ap-southeast-1</span> or GCP <span class="m">asia-southeast1</span> are equally valid if you prefer.</div>
+  </section>
+
+  <!-- 5 AI SANDBOX -->
+  <section class="body">
+    <div class="sec-head"><span class="sec-num">05 / THE SANDBOX</span><h2>How AI is walled off from personal data</h2></div>
+    <p class="sec-sub">This is the part that protects you. The rule: <b>the model only ever receives the minimum it needs, de-identified, through one auditable gateway — and it is never trusted with a calculation or a final decision.</b></p>
+
+    <div class="diagram">
+      <div class="cap">Figure 3 · The AI&ndash;PII trust boundary</div>
+      <div class="trustwrap">
+        <div class="zone in">
+          <div class="zt">🔒 Trust zone — holds PII (in-region)</div>
+          <div class="zbox"><b>Portal DB &amp; object store</b><span>Names, FINs, passports, salaries, medical data.</span></div>
+          <div class="zbox"><b>Calculation engine</b><span>All payroll/levy/CPF math. Never calls the model.</span></div>
+          <div class="zbox"><b>Template merge</b><span>Real names/figures inserted into letters here, after AI returns.</span></div>
+        </div>
+        <div class="gateway">
+          <div class="gt">AI Gateway</div>
+          <ul>
+            <li>De-identify / tokenise PII</li>
+            <li>Minimise to needed fields</li>
+            <li>Purpose &amp; role check</li>
+            <li>Log prompt + response</li>
+            <li>Route to approved model</li>
+          </ul>
+        </div>
+        <div class="zone out">
+          <div class="zt">⚠ Untrusted — the model</div>
+          <div class="zbox"><b>Receives only redacted text</b><span>e.g. "Dear [EMPLOYEE_1], your bond of [AMOUNT_1]…" — placeholders, not real data.</span></div>
+          <div class="zbox"><b>Returns a draft / classification</b><span>Reviewed by a human; re-hydrated with real values inside the trust zone.</span></div>
+          <div class="zbox"><b>No retention, no training</b><span>Contractual + region-locked endpoint.</span></div>
+        </div>
+      </div>
+    </div>
+
+    <h3 class="sub">The seven controls</h3>
+    <ul class="clean">
+      <li><b>1 · Capability boundary.</b> The model is used only for drafting, retrieval Q&amp;A, summarisation, classification and triage. It is structurally unable to write to the DB or trigger an action.</li>
+      <li><b>2 · Data minimisation.</b> Each AI call passes only the fields that task needs — never a whole employee record.</li>
+      <li><b>3 · De-identification / tokenisation.</b> Names, FINs, passport and salary values are swapped for placeholders before crossing the boundary, and re-hydrated locally afterward. The model works on a skeleton.</li>
+      <li><b>4 · Single gateway.</b> Every AI call routes through one internal service that enforces 1&ndash;3, checks the caller's role and purpose, and logs the (redacted) prompt and response.</li>
+      <li><b>5 · Region-locked, no-train model.</b> Inference runs on an in-region endpoint under a data-processing agreement with no training/retention — never a consumer AI product.</li>
+      <li><b>6 · RAG isolation.</b> The knowledge base holds only regulations, circulars and SOPs (non-personal). Personal data is <em>not</em> embedded into the vector store.</li>
+      <li><b>7 · Human review gate.</b> Output is labelled AI-generated and reviewed by the responsible person before anything is issued, filed or actioned.</li>
+    </ul>
+    <div class="callout warn"><span class="h">⚠ Residual risk to accept</span>Even sandboxed, AI drafts can be wrong or subtly off. The human review gate (control 7) is the real backstop — it is a process control, not just a technical one, and must be enforced in the UI (nothing leaves the Portal without a named approval).</div>
+  </section>
+
+  <!-- 6 SECURITY -->
+  <section class="body">
+    <div class="sec-head"><span class="sec-num">06 / SECURITY</span><h2>Security &amp; PDPA architecture</h2></div>
+    <div class="tblscroll">
+    <table class="tbl">
+      <tr><th>Control</th><th>Implementation</th></tr>
+      <tr><td class="k">Access</td><td>SSO restricted to the HR security group; MFA enforced; Portal not publicly routable (corporate network / zero-trust access only).</td></tr>
+      <tr><td class="k">Authorisation</td><td>App-level RBAC for the six roles + PostgreSQL row-level security so a query cannot return out-of-scope rows even if app logic fails.</td></tr>
+      <tr><td class="k">Coverage mode</td><td>Temporary delegated access implementing the cross-training matrix (Payroll↔FW, FW→Staff, Staff→Payroll): Manager-approved, time-bounded, auto-expiring, and every action taken under delegation is flagged as such in the audit log.</td></tr>
+      <tr><td class="k">Notifications</td><td>Time-critical alerts pushed to email/Teams; message content carries no sensitive personal data — it deep-links into the portal where RBAC applies. Unacknowledged critical alerts escalate up the reporting line.</td></tr>
+      <tr><td class="k">Encryption</td><td>TLS 1.2+ in transit; AES-256 at rest for DB, object store and backups.</td></tr>
+      <tr><td class="k">Secrets</td><td>Managed secrets vault (DB creds, model keys, HRIQ creds); no secrets in code or config files.</td></tr>
+      <tr><td class="k">Audit</td><td>Append-only, tamper-evident log of every data change, AI call and human approval — user, timestamp, before/after.</td></tr>
+      <tr><td class="k">Retention</td><td>Automated enforcement of the Employment Act retention clock with scheduled purge + pre-purge review.</td></tr>
+      <tr><td class="k">Breach</td><td>Anomaly alerts (unusual access/export) + a documented PDPC-aligned breach-response workflow.</td></tr>
+      <tr><td class="k">Residency</td><td>All personal data stored and processed in Singapore region, including the AI endpoint.</td></tr>
+      <tr><td class="k">Assurance</td><td>Independent security review + penetration test before any phase that handles personal or financial data goes live.</td></tr>
+    </table>
+    </div>
+  </section>
+
+  <!-- 6B CV INTAKE PIPELINE -->
+  <section class="body">
+    <div class="sec-head"><span class="sec-num">6B / CV INTAKE</span><h2>CV parsing — upload to structured record</h2></div>
+    <p class="sec-sub">CVs are the single input to recruitment; AI does the data entry. Whether a candidate uploads through the public application page or HR uploads an agency/walk-in CV, the file follows one pipeline: stored encrypted, parsed by AI into structured fields, written to the database, and scored for fit — no manual keying.</p>
+
+    <div class="diagram">
+      <div class="cap">Figure 4 · CV intake &amp; parsing pipeline</div>
+      <div class="flow">
+        <div class="node"><div class="nt">CV upload</div><div class="nd">application page or HR upload</div></div>
+        <div class="arrow"><span class="lbl">file +<br>consent</span><span class="ln">&rarr;</span></div>
+        <div class="node store"><div class="nt">Object store</div><div class="nd">encrypted · virus-scanned</div></div>
+        <div class="arrow"><span class="lbl">document text</span><span class="ln">&rarr;</span></div>
+        <div class="node ai"><div class="nt">AI parser</div><div class="nd">OCR + entity extraction, via gateway</div></div>
+        <div class="arrow"><span class="lbl">structured<br>fields</span><span class="ln">&rarr;</span></div>
+        <div class="node store"><div class="nt">Candidate record</div><div class="nd">PostgreSQL (structured)</div></div>
+        <div class="arrow"><span class="lbl">skills →<br>fit score</span><span class="ln">&rarr;</span></div>
+        <div class="node"><div class="nt">Screening pipeline</div><div class="nd">ranked shortlist</div></div>
+      </div>
+    </div>
+
+    <div class="diagram"><div class="seq">
+      <div class="step"><div class="n">1</div><div class="c">A CV is uploaded — by a candidate on the public application page (consent captured at source) or by HR for an agency / walk-in / referral CV (consent + source recorded).</div></div>
+      <div class="step gate"><div class="n">2</div><div class="c"><b>File lands in the encrypted object store</b> and is virus-scanned. The raw CV is personal data — it carries the retention clock from day one.</div></div>
+      <div class="step"><div class="n">3</div><div class="c"><b>AI parser</b> extracts name, contact, experience, role and skills (OCR for scans + entity extraction). Only the minimal document text needed crosses the AI gateway; the structured result returns to the trust zone.</div></div>
+      <div class="step"><div class="n">4</div><div class="c">Fields are written as a <b>structured candidate record</b> in PostgreSQL, linked to the stored file. Low-confidence fields are flagged.</div></div>
+      <div class="step"><div class="n">5</div><div class="c"><b>Fit score</b> is computed deterministically — extracted skills/experience matched against the role profile — and the candidate enters the screening pipeline, ranked.</div></div>
+      <div class="step gate"><div class="n">6</div><div class="c"><b>Human reviews</b> the extracted fields and the ranking before routing to a hirer. Extraction is assisted, not autonomous.</div></div>
+    </div></div>
+
+    <div class="callout warn"><span class="h">⚠ Two design constraints</span><b>Accuracy:</b> CV layouts are messy; parsing is never 100%. The review-and-correct step stays, and low-confidence fields are flagged rather than trusted. <b>Explainable ranking:</b> the fit score is deterministic skill/experience matching — not an opaque LLM judgement — so a shortlisting decision can always be explained and defended (relevant to FCF / anti-discrimination record-keeping).</div>
+  </section>
+
+  <!-- 6C EXTERNAL ACTORS -->
+  <section class="body">
+    <div class="sec-head"><span class="sec-num">6C / EXTERNAL ACTORS</span><h2>Non-HR actors &amp; how they touch the system</h2></div>
+    <p class="sec-sub">The portal is HR-only, but the job scopes involve several non-HR actors. None of them get portal accounts — each gets a purpose-built channel. The <b>secure one-time link</b> pattern (single-purpose, expiring, no login, minimal data) serves every "respond to one question" case.</p>
+    <div class="tblscroll">
+    <table class="tbl">
+      <tr><th>Actor</th><th>Interaction</th><th>Channel</th></tr>
+      <tr><td class="k">Hiring managers</td><td>Review shortlisted CV, register interest</td><td>One-time link (outbound email → response recorded in Recruitment)</td></tr>
+      <tr><td class="k">Site supervisors</td><td>Confirm missing/abnormal OT entries; leave-coverage coordination</td><td>One-time link or email digest from the Assistant's chase queue</td></tr>
+      <tr><td class="k">Candidates</td><td>Apply, upload CV, receive invites &amp; offers</td><td>Public application page (§6B) + outbound email</td></tr>
+      <tr><td class="k">EHS department</td><td>Incident reports <em>in</em> (trigger claim cases); weekly OT exception report <em>out</em> (fatigue monitoring)</td><td>Structured intake (form/file drop) inbound; scheduled report delivery outbound</td></tr>
+      <tr><td class="k">Finance</td><td>Wage-subsidy/grant reconciliation; grading flags</td><td>File exchange / shared reports (INT-04)</td></tr>
+      <tr><td class="k">Operations</td><td>Site-deployment data for tender cross-checks &amp; headcount reconciliation</td><td>Batch file exchange (INT-04)</td></tr>
+      <tr><td class="k">Head of HR / Director</td><td>Approvals above Manager DOA tier; HR Assurance Summary</td><td>Head of HR is a portal user; Director receives escalations via the Head of HR</td></tr>
+    </table>
+    </div>
+  </section>
+
+  <!-- 7 DATA FLOW EXAMPLES -->
+  <section class="body">
+    <div class="sec-head"><span class="sec-num">07 / WALKTHROUGHS</span><h2>Two end-to-end flows</h2></div>
+
+    <h3 class="sub">A · Generating a bond letter (AI-assisted)</h3>
+    <div class="diagram"><div class="seq">
+      <div class="step"><div class="n">1</div><div class="c">Executive (Staff) selects an employee and "draft bond letter" in their workspace.</div></div>
+      <div class="step"><div class="n">2</div><div class="c">App fetches needed fields from the <b>Portal DB</b> (trust zone) — bond terms, dates.</div></div>
+      <div class="step gate"><div class="n">3</div><div class="c"><b>AI Gateway de-identifies</b>: real name/amount become <code>[EMPLOYEE_1]</code>, <code>[AMOUNT_1]</code>; only the skeleton crosses to the model.</div></div>
+      <div class="step"><div class="n">4</div><div class="c">Model returns drafted letter prose with placeholders intact; gateway logs the exchange.</div></div>
+      <div class="step"><div class="n">5</div><div class="c"><b>Template merge inside the trust zone</b> re-inserts real values. Draft labelled "AI-generated".</div></div>
+      <div class="step gate"><div class="n">6</div><div class="c"><b>Human review gate</b>: Executive (and approver per DOA) reviews and releases. Issued version archived; action audited.</div></div>
+    </div></div>
+
+    <h3 class="sub">B · DRC / permit-expiry alert (AI-led monitoring)</h3>
+    <div class="diagram"><div class="seq">
+      <div class="step"><div class="n">1</div><div class="c">Nightly extraction refreshes worker/permit data into the <b>Portal DB</b>.</div></div>
+      <div class="step"><div class="n">2</div><div class="c"><b>Compliance monitor</b> (deterministic) recomputes DRC headroom and scans permit/passport expiry windows.</div></div>
+      <div class="step"><div class="n">3</div><div class="c">Threshold breaches and upcoming expiries become prioritised alerts with owner + due date.</div></div>
+      <div class="step"><div class="n">4</div><div class="c">FW Executive sees them on the compliance board at login; the monthly DRC report is auto-compiled for the HR Manager.</div></div>
+      <div class="step gate"><div class="n">5</div><div class="c"><b>Human acts</b>: the Executive initiates renewal/correction; the Manager approves corrective action. No money or filing moves without a person.</div></div>
+    </div></div>
+    <p style="font-size:13.5px;color:var(--slate);max-width:74ch;">Note flow B touches no LLM at all — the highest-value monitoring is pure deterministic code. AI is the assistant, not the engine.</p>
+  </section>
+
+  <!-- 8 ENVIRONMENTS / OPEN -->
+  <section class="body">
+    <div class="sec-head"><span class="sec-num">08 / OPS &amp; OPEN ITEMS</span><h2>Environments &amp; decisions still open</h2></div>
+    <h3 class="sub">Environments &amp; operations</h3>
+    <ul class="clean">
+      <li><b>Three environments</b> — Dev, Staging (with synthetic/masked data), Production. No real PII in Dev.</li>
+      <li><b>Backups</b> — automated daily, encrypted, with periodically <em>tested</em> restores.</li>
+      <li><b>Monitoring</b> — uptime, job-failure alerts (a failed extraction must page someone), and audit-log review.</li>
+      <li><b>Parallel-run</b> — payroll/calculation outputs reconciled against the current process before becoming authoritative (per the SRS phasing).</li>
+    </ul>
+    <h3 class="sub">Decisions that need your input</h3>
+    <div class="tblscroll">
+    <table class="tbl">
+      <tr><th>Decision</th><th>Options / note</th></tr>
+      <tr><td class="k">Cloud vs on-prem</td><td>Cloud SG-region (recommended, faster/cheaper) vs on-prem if company policy forbids cloud for HR data.</td></tr>
+      <tr><td class="k">Identity provider</td><td>Confirm Entra ID / Google Workspace / other — drives SSO &amp; possibly hosting.</td></tr>
+      <tr><td class="k">Self-hosted vs API model</td><td>API model (simpler, region-locked) vs self-hosted open model (max data control, more ops). Can mix per sensitivity.</td></tr>
+      <tr><td class="k">Extraction cadence</td><td>How fresh must each dataset be? Drives schedule and intra-day delta design.</td></tr>
+      <tr><td class="k">Existing scripts</td><td>Share current Python extraction scripts so they can be assessed and folded into the ingestion layer.</td></tr>
+    </table>
+    </div>
+  </section>
+
+  <footer>
+    Companion to <b>HR Portal — Requirements Specification</b> and the <b>HR Portal Blueprint</b>. Architecture is a recommendation for review, not a final design; hosting, identity and model-hosting choices require your confirmation and a security review before build. PDPA/MOM controls described here must be validated against current regulation. Ye Zaw Lin is named business owner for compliance matters.
+  </footer>
+
+</div>

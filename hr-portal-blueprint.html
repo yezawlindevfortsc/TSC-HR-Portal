@@ -1,0 +1,769 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HR Portal Blueprint — Roles, Tasks & AI Mapping</title>
+<style>
+  :root {
+    /* Blueprint neutrals — cool grey with a slight blue bias */
+    --ink:        #14202e;
+    --ink-2:      #243446;
+    --slate:      #4a5a6c;
+    --slate-2:    #6b7a8a;
+    --line:       #d8dee6;
+    --line-2:     #e8edf2;
+    --paper:      #f4f6f9;
+    --paper-2:    #fbfcfd;
+    --white:      #ffffff;
+
+    /* Structural accent — steel blue, kept quiet so the semantic chips carry meaning */
+    --steel:      #2f5d8a;
+    --steel-soft: #e4edf5;
+
+    /* Semantic AI-mode colors */
+    --auto:       #1f7a52;  /* AI-led / automatable */
+    --auto-bg:    #e3f3eb;
+    --assist:     #b5740a;  /* AI-assisted, human decides */
+    --assist-bg:  #fbeed5;
+    --human:      #8a3d52;  /* human-only */
+    --human-bg:   #f6e4e9;
+
+    /* Role accent stripes — echo the source document's own color coding */
+    --r-mgr:   #17375e;
+    --r-pay:   #1f497d;
+    --r-fw:    #7030a0;
+    --r-staff: #c55a11;
+    --r-asst:  #404040;
+
+    --mono: ui-monospace, "Cascadia Code", "Consolas", "SF Mono", Menlo, monospace;
+    --sans: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 24px 96px; }
+
+  /* ---- Masthead ---- */
+  header.mast {
+    background: var(--ink);
+    color: #eef3f8;
+    background-image:
+      linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+    background-size: 26px 26px;
+    border-bottom: 3px solid var(--steel);
+  }
+  .mast-inner { max-width: 1040px; margin: 0 auto; padding: 40px 24px 34px; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: #8fb4d6;
+    margin: 0 0 14px;
+  }
+  h1.title {
+    font-size: clamp(28px, 4.4vw, 44px);
+    line-height: 1.08;
+    margin: 0 0 16px;
+    font-weight: 700;
+    letter-spacing: -.01em;
+    text-wrap: balance;
+    color: var(--white);
+  }
+  .lede { max-width: 64ch; color: #c4d3e1; font-size: 17px; margin: 0; }
+  .mast-meta {
+    margin-top: 22px; display: flex; flex-wrap: wrap; gap: 8px;
+  }
+  .tag {
+    font-family: var(--mono); font-size: 11.5px; letter-spacing: .04em;
+    color: #cfe0ef; background: rgba(255,255,255,.07);
+    border: 1px solid rgba(255,255,255,.16); border-radius: 4px;
+    padding: 4px 9px;
+  }
+
+  /* ---- Section scaffolding ---- */
+  section { margin-top: 56px; }
+  .sec-head { border-bottom: 2px solid var(--ink); padding-bottom: 10px; margin-bottom: 8px; }
+  .sec-num {
+    font-family: var(--mono); font-size: 13px; color: var(--steel);
+    letter-spacing: .12em; font-weight: 600;
+  }
+  h2 { font-size: clamp(22px, 3vw, 30px); margin: 4px 0 0; letter-spacing: -.01em; }
+  .sec-sub { color: var(--slate); margin: 10px 0 0; max-width: 70ch; }
+
+  /* ---- Legend ---- */
+  .legend {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 14px; margin-top: 26px;
+  }
+  .legend-card {
+    background: var(--white); border: 1px solid var(--line);
+    border-radius: 8px; padding: 16px 18px; border-left-width: 5px;
+  }
+  .legend-card.auto   { border-left-color: var(--auto); }
+  .legend-card.assist { border-left-color: var(--assist); }
+  .legend-card.human  { border-left-color: var(--human); }
+  .legend-card h3 { margin: 0 0 6px; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+  .legend-card p { margin: 0; font-size: 14px; color: var(--slate); }
+
+  /* ---- Mode chip ---- */
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-family: var(--mono); font-size: 10.5px; font-weight: 600;
+    letter-spacing: .06em; text-transform: uppercase;
+    padding: 3px 8px; border-radius: 4px; white-space: nowrap;
+    border: 1px solid transparent;
+  }
+  .chip.auto   { color: var(--auto);   background: var(--auto-bg);   border-color: #b9dfc9; }
+  .chip.assist { color: var(--assist); background: var(--assist-bg); border-color: #ecd6a3; }
+  .chip.human  { color: var(--human);  background: var(--human-bg);  border-color: #e6c2cd; }
+
+  /* ---- Role cards ---- */
+  .role {
+    background: var(--white); border: 1px solid var(--line);
+    border-radius: 10px; margin-top: 26px; overflow: hidden;
+    box-shadow: 0 1px 2px rgba(20,32,46,.04);
+  }
+  .role-head { padding: 20px 24px; border-left: 6px solid var(--slate); }
+  .role.mgr   .role-head { border-left-color: var(--r-mgr); }
+  .role.pay   .role-head { border-left-color: var(--r-pay); }
+  .role.fw    .role-head { border-left-color: var(--r-fw); }
+  .role.staff .role-head { border-left-color: var(--r-staff); }
+  .role.asst  .role-head { border-left-color: var(--r-asst); }
+  .role-title { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .role-title h3 { margin: 0; font-size: 21px; letter-spacing: -.01em; }
+  .role-scope { font-size: 14px; color: var(--slate-2); font-weight: 500; }
+  .role-purpose { margin: 12px 0 0; font-size: 14.5px; color: var(--slate); max-width: 78ch; }
+  .role-counts { display: flex; gap: 14px; margin-top: 14px; flex-wrap: wrap; }
+  .count { font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; color: var(--slate); }
+  .count b { font-size: 15px; }
+  .count.auto b   { color: var(--auto); }
+  .count.assist b { color: var(--assist); }
+  .count.human b  { color: var(--human); }
+
+  .grp { border-top: 1px solid var(--line-2); }
+  .grp-name {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--ink-2); font-weight: 600;
+    padding: 14px 24px 8px; background: var(--paper-2);
+  }
+  ul.tasks { list-style: none; margin: 0; padding: 0; }
+  ul.tasks li {
+    display: grid; grid-template-columns: 118px 1fr;
+    gap: 16px; align-items: start;
+    padding: 11px 24px; border-top: 1px solid var(--line-2);
+  }
+  ul.tasks li:first-child { border-top: none; }
+  ul.tasks li .t { font-size: 14.5px; color: var(--ink-2); }
+  .reg { font-family: var(--mono); font-size: 11.5px; color: var(--steel); background: var(--steel-soft);
+         padding: 1px 5px; border-radius: 3px; white-space: nowrap; }
+
+  /* ---- Human-only consolidated ---- */
+  .human-list { columns: 2; column-gap: 32px; margin-top: 22px; }
+  .human-list .hitem {
+    break-inside: avoid; background: var(--white); border: 1px solid var(--line);
+    border-left: 4px solid var(--human); border-radius: 6px;
+    padding: 12px 14px; margin-bottom: 12px;
+  }
+  .human-list .hitem b { display: block; font-size: 14px; margin-bottom: 3px; }
+  .human-list .hitem span { font-size: 13px; color: var(--slate); }
+
+  /* ---- Portal architecture ---- */
+  .arch { display: grid; gap: 16px; margin-top: 24px; }
+  .module {
+    background: var(--white); border: 1px solid var(--line); border-radius: 9px;
+    padding: 18px 20px;
+  }
+  .module h3 { margin: 0 0 4px; font-size: 17px; display: flex; align-items: center; gap: 10px; }
+  .module .mtag { font-family: var(--mono); font-size: 11px; color: var(--white); background: var(--steel);
+                  padding: 2px 7px; border-radius: 4px; letter-spacing: .04em; }
+  .module p { margin: 6px 0 0; font-size: 14px; color: var(--slate); }
+  .module ul { margin: 10px 0 0; padding-left: 18px; font-size: 13.5px; color: var(--ink-2); }
+  .module ul li { margin: 3px 0; }
+
+  .guard {
+    background: var(--ink); color: #dce6ef; border-radius: 10px; padding: 24px 26px;
+    margin-top: 24px;
+  }
+  .guard h3 { color: var(--white); margin: 0 0 10px; font-size: 18px; }
+  .guard ul { margin: 0; padding-left: 18px; }
+  .guard li { margin: 7px 0; font-size: 14.5px; color: #c4d3e1; }
+  .guard li b { color: #fff; }
+
+  /* ---- Summary bar chart ---- */
+  .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap: 14px; margin-top: 24px; }
+  .stat { background: var(--white); border: 1px solid var(--line); border-radius: 9px; padding: 18px 20px; border-top: 4px solid var(--slate); }
+  .stat.auto   { border-top-color: var(--auto); }
+  .stat.assist { border-top-color: var(--assist); }
+  .stat.human  { border-top-color: var(--human); }
+  .stat .n { font-size: 34px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+  .stat.auto .n { color: var(--auto); }
+  .stat.assist .n { color: var(--assist); }
+  .stat.human .n { color: var(--human); }
+  .stat .l { font-size: 13px; color: var(--slate); margin-top: 2px; }
+
+  .note { font-size: 13px; color: var(--slate-2); margin-top: 14px; font-style: italic; }
+
+  footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--slate-2); }
+
+  @media (max-width: 640px) {
+    ul.tasks li { grid-template-columns: 1fr; gap: 6px; }
+    .human-list { columns: 1; }
+  }
+</style>
+
+<header class="mast">
+  <div class="mast-inner">
+    <p class="eyebrow">HR Portal · Design Blueprint</p>
+    <h1 class="title">HR Roles, Tasks &amp; Where AI Fits</h1>
+    <p class="lede">A working map of the HR department — every responsibility broken down by role, each task tagged by how AI can carry it inside an HR-only portal, and a clear line drawn around the work that stays human.</p>
+    <div class="mast-meta">
+      <span class="tag">BCA A1 Contractor</span>
+      <span class="tag">6-Role Structure</span>
+      <span class="tag">Singapore · MOM / EFMA / CPF</span>
+      <span class="tag">PDPA-governed</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- LEGEND -->
+  <section id="legend">
+    <div class="sec-head">
+      <span class="sec-num">00 / HOW TO READ THIS</span>
+      <h2>The three AI modes</h2>
+    </div>
+    <p class="sec-sub">Every task below carries one of three tags. The tag tells you who does the work and who is accountable — the portal is designed around this distinction, not around replacing people.</p>
+    <div class="legend">
+      <div class="legend-card auto">
+        <h3><span class="chip auto">🤖 AI-led</span></h3>
+        <p>AI does the task end-to-end — calculation, monitoring, drafting, reconciliation, collation. A human triggers it and glances at the output. Highest automation value.</p>
+      </div>
+      <div class="legend-card assist">
+        <h3><span class="chip assist">🤝 AI-assisted</span></h3>
+        <p>AI prepares the heavy lifting — a draft, an analysis, a recommendation, a flagged exception — but a named person reviews and makes the call. Human stays accountable.</p>
+      </div>
+      <div class="legend-card human">
+        <h3><span class="chip human">👤 Human-only</span></h3>
+        <p>Judgment, legal accountability, relationships, physical acts, and final authority. AI may surface information, but the act itself must be performed by a person.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ORG NOTE -->
+  <section id="structure">
+    <div class="sec-head">
+      <span class="sec-num">01 / DEPARTMENT</span>
+      <h2>The six roles</h2>
+    </div>
+    <p class="sec-sub">The <b>Head of HR</b> sits above the team as final approver and escalation point for strategic and high-risk matters (no operational task list of their own). The five operating roles below carry the day-to-day work. Operational execution flows upward through defined approval thresholds (the DOA matrix).</p>
+  </section>
+
+  <!-- ROLE 1: HR MANAGER -->
+  <article class="role mgr">
+    <div class="role-head">
+      <div class="role-title">
+        <h3>HR Manager</h3>
+        <span class="role-scope">Governance, Risk &amp; Strategy</span>
+      </div>
+      <p class="role-purpose">Reports to the Head of HR. Strategic partner and central authority for compliance, risk and compensation. Approves and adjudicates at department level, routes higher-impact matters up. Mostly an <b>approval &amp; judgment</b> role — so AI mostly <em>assists</em> here rather than leads.</p>
+      <div class="role-counts">
+        <span class="count auto">🤖 <b>3</b> AI-led</span>
+        <span class="count assist">🤝 <b>14</b> AI-assisted</span>
+        <span class="count human">👤 <b>12</b> Human-only</span>
+      </div>
+    </div>
+
+    <div class="grp">
+      <div class="grp-name">1 · Strategic Business Partnering &amp; Workforce Optimization</div>
+      <ul class="tasks">
+        <li><span class="chip human">👤 Human</span><span class="t">Partner with top management &amp; business heads to identify org HR needs.</span></li>
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Assess operational gaps (recruitment, comp, training, performance) and scope project initiatives — AI analyzes the data and proposes; Manager directs.</span></li>
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Identify &amp; recommend government grants, wage subsidies, capability funding — AI surfaces eligible schemes; Manager approves applications.</span></li>
+        <li><span class="chip assist">🤝 Assist</span><span class="t">HR input into <span class="reg">BCA</span> tender submissions; cross-check HR manpower vs Operations site deployment data to prevent declaration discrepancies — AI reconciles the two datasets and flags gaps.</span></li>
+      </ul>
+    </div>
+
+    <div class="grp">
+      <div class="grp-name">2 · Regulatory &amp; Policy Governance</div>
+      <ul class="tasks">
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Initiate &amp; draft policy reviews/formulation for evolving business demands — AI drafts against current law; Manager owns the policy.</span></li>
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Ensure compliance with <span class="reg">Employment Act</span> <span class="reg">EFMA</span> <span class="reg">BCA quotas</span> — AI monitors continuously and alerts.</span></li>
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Oversee R1/R2 workforce framework governance.</span></li>
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Review monthly DRC compliance reports; approve corrective actions on headroom risk — AI compiles &amp; pre-flags; Manager approves.</span></li>
+        <li><span class="chip human">👤 Human</span><span class="t">Final disciplinary decisions on escalated cases, retrenchment classification, complex <span class="reg">MOM</span> notifications. AI can draft the flow &amp; documents; the decision is human.</span></li>
+        <li><span class="chip human">👤 Human</span><span class="t">Named final-level escalation point for all staff/worker grievances — adjudication.</span></li>
+        <li><span class="chip human">👤 Human</span><span class="t">Named point-of-contact who attends &amp; fronts <span class="reg">MOM</span> inspections/audits.</span></li>
+      </ul>
+    </div>
+
+    <div class="grp">
+      <div class="grp-name">3 · Compensation, Reviews &amp; Benefits</div>
+      <ul class="tasks">
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Drive annual salary &amp; bonus review cycle — AI collects data, computes equity, compiles the consolidated proposal; Manager &amp; Head of HR decide.</span></li>
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Annual market salary &amp; bonus benchmarking — AI gathers &amp; analyzes market data.</span></li>
+        <li><span class="chip human">👤 Human</span><span class="t">Adjudicate post-review salary &amp; bonus appeals.</span></li>
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Own corporate insurance renewal (<span class="reg">WICA</span> <span class="reg">FWMI</span> <span class="reg">Group Medical</span>) — AI compiles insurer comparison; Manager recommends &amp; selects.</span></li>
+        <li><span class="chip human">👤 Human</span><span class="t">Approve Letter of Consent applications &amp; third-party medical panel arrangements.</span></li>
+      </ul>
+    </div>
+
+    <div class="grp">
+      <div class="grp-name">4 · BCA Licence &amp; Corporate Licence Governance</div>
+      <ul class="tasks">
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Coordinate HR manpower docs for <span class="reg">BCA A1</span> licence renewals (with Finance &amp; Corp Sec).</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Monitor BCA A1 licence conditions &amp; financial grading thresholds continuously; flag cost trajectories — AI tracks and alerts.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Track compliance &amp; conditions for all corporate licences held.</span></li>
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Review &amp; approve BCA documentation packages before submission.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Produce the weekly HR Assurance Summary (regulatory, licence, manpower, cost-drift, people risk) — AI generates; Manager reviews &amp; sends up.</span></li>
+      </ul>
+    </div>
+
+    <div class="grp">
+      <div class="grp-name">5 · EHS Coordination &amp; Risk Management</div>
+      <ul class="tasks">
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Review settlement packages for worker/staff claims; route per DOA; adjudicate disputes — AI checks figures &amp; routing; Manager adjudicates.</span></li>
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Govern HR's role in work-injury reporting; approve complex/disputed <span class="reg">MOM</span> notifications. (HR does not conduct safety investigations.)</span></li>
+      </ul>
+    </div>
+
+    <div class="grp">
+      <div class="grp-name">6 · Systems, Data &amp; PDPA Governance</div>
+      <ul class="tasks">
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Lead process streamlining &amp; HR systems implementation.</span></li>
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Own HRIS (<span class="reg">HRIQ</span>) structure &amp; data accuracy; approve overtime config rules (caps, multipliers, workflows).</span></li>
+        <li><span class="chip human">👤 Human</span><span class="t">Own <span class="reg">PDPA</span> governance: approve role-based access, retention schedules, breach protocols. AI enforces rules; accountability is human.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Maintain HR record-retention policy &amp; clock (<span class="reg">Employment Act</span> retention rules) — AI tracks dates &amp; purge triggers.</span></li>
+        <li><span class="chip human">👤 Human</span><span class="t">Approve deployment of AI tools used for HR decision-support (PDPA &amp; data governance).</span></li>
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Review &amp; approve official memos, company-wide announcements, org-chart updates — AI drafts; Manager approves.</span></li>
+      </ul>
+    </div>
+
+    <div class="grp">
+      <div class="grp-name">7 · Leadership, Mentorship &amp; Reporting</div>
+      <ul class="tasks">
+        <li><span class="chip human">👤 Human</span><span class="t">Approve routine departmental matters within authority; route per DOA matrix.</span></li>
+        <li><span class="chip human">👤 Human</span><span class="t">Manage &amp; mentor the functional HR team (Payroll, FW, Staff).</span></li>
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Assign daily task priorities to the HR Assistant — AI can suggest a workload plan; Manager sets priorities.</span></li>
+        <li><span class="chip human">👤 Human</span><span class="t">Enforce &amp; oversee execution of the HR cross-training matrix.</span></li>
+      </ul>
+    </div>
+  </article>
+
+  <!-- ROLE 2: EXECUTIVE (PAYROLL) -->
+  <article class="role pay">
+    <div class="role-head">
+      <div class="role-title">
+        <h3>Executive — Payroll</h3>
+        <span class="role-scope">Payroll, Leave, OT &amp; Workforce Cost Control</span>
+      </div>
+      <p class="role-purpose">Accountable for payroll accuracy, statutory submissions and total labour-cost control. The most <b>computation- and reconciliation-heavy</b> role — the strongest fit for AI automation, under maker-checker control.</p>
+      <div class="role-counts">
+        <span class="count auto">🤖 <b>12</b> AI-led</span>
+        <span class="count assist">🤝 <b>5</b> AI-assisted</span>
+        <span class="count human">👤 <b>1</b> Human-only</span>
+      </div>
+    </div>
+
+    <div class="grp">
+      <div class="grp-name">1 · Payroll &amp; Statutory Administration</div>
+      <ul class="tasks">
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Prepare monthly payroll for staff &amp; workers — AI computes; Executive verifies.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Prepare resignee payroll &amp; calculate leave encashment.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Execute <span class="reg">CPF</span> submissions, foreign-worker tax clearance <span class="reg">IR21</span>, <span class="reg">IR8A</span> prep — AI prepares filings.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Conduct payroll reconciliation.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Reconcile approved salary &amp; bonus figures against final payroll runs to prevent payout errors.</span></li>
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Maker-checker control: AI prepares &amp; flags abnormal adjustments / off-cycle / disputed items; Manager performs exception review before release.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Administer training/service bond tracking; calculate bond-break liabilities on resignation.</span></li>
+      </ul>
+    </div>
+
+    <div class="grp">
+      <div class="grp-name">2 · Levy &amp; Waiver Administration</div>
+      <ul class="tasks">
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Calculate levies &amp; update <span class="reg">FWL</span> billing.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Process <span class="reg">MOM</span> levy-waiver applications on trigger from Executive (FW).</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Reconcile waiver outcomes vs actual MOM billing; report discrepancies.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Monitor R1 vs R2 levy cost differences.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Generate total manpower cost reports by cost centre (salary vs levy).</span></li>
+      </ul>
+    </div>
+
+    <div class="grp">
+      <div class="grp-name">3 · Overtime Administration</div>
+      <ul class="tasks">
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Review automated OT calculations from <span class="reg">HRIQ</span>; audit for config errors &amp; anomalies.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Monitor statutory OT compliance under <span class="reg">Part IV EA</span> (1.5×, 72-hr cap).</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Generate weekly OT exception reports by site/dept; provide to EHS for fatigue monitoring.</span></li>
+      </ul>
+    </div>
+
+    <div class="grp">
+      <div class="grp-name">4 · Leave Cost &amp; Workforce Cost Reporting</div>
+      <ul class="tasks">
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Draw leave data from HRIQ for payroll (encashment, deductions, waiver triggers).</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Execute payroll holds for AWOL / non-returning workers on FW notification.</span></li>
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Reconcile incoming government wage subsidies &amp; grant payouts with Finance.</span></li>
+      </ul>
+    </div>
+
+    <div class="grp">
+      <div class="grp-name">5 · Insurance Policy Administration</div>
+      <ul class="tasks">
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Maintain corporate insurance records (policyholder, renewal docs, premium reconciliation).</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Provide AME &amp; payroll data to FW/Staff for claim compensation calculations.</span></li>
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Benchmark insurance premiums annually; provide findings to the Manager.</span></li>
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Key approved salary/bonus changes into HRIQ for next payroll (maker-checker).</span></li>
+      </ul>
+    </div>
+
+    <div class="grp">
+      <div class="grp-name">6 · Cross-Training Duty</div>
+      <ul class="tasks">
+        <li><span class="chip human">👤 Human</span><span class="t">Designated secondary operator for FW &amp; Dormitory Ops in Executive (FW)'s absence. (Coverage role — human.)</span></li>
+      </ul>
+    </div>
+  </article>
+
+  <!-- ROLE 3: EXECUTIVE (FW) -->
+  <article class="role fw">
+    <div class="role-head">
+      <div class="role-title">
+        <h3>Executive — Foreign Workers</h3>
+        <span class="role-scope">Foreign Workers, Dormitory &amp; Worker Lifecycle</span>
+      </div>
+      <p class="role-purpose">Manages foreign-worker compliance, MOM upgrading and lifecycle. Tracking and statutory administration are highly AI-supportable; physical dormitory acts and frontline grievance handling stay human (delegated execution sits with the Assistant).</p>
+      <div class="role-counts">
+        <span class="count auto">🤖 <b>11</b> AI-led</span>
+        <span class="count assist">🤝 <b>5</b> AI-assisted</span>
+        <span class="count human">👤 <b>5</b> Human-only</span>
+      </div>
+    </div>
+
+    <div class="grp">
+      <div class="grp-name">1 · Permits &amp; Hiring Verification</div>
+      <ul class="tasks">
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Execute FW hiring after verifying <span class="reg">BCA A1</span> quota &amp; levy impacts — AI verifies quota/levy headroom; Executive decides the hire.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Own DRC calculation; maintain live DRC position; submit monthly compliance reports.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Track the <span class="reg">IPA</span> pipeline; cross-reference in-flight IPAs vs quota headroom.</span></li>
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Develop direct-hire channels &amp; referral programmes; coordinate overseas partners — AI manages pipeline data; relationships are human.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Work-permit issuance, renewal, cancellation &amp; <span class="reg">MOM</span> system updates — AI prepares &amp; tracks.</span></li>
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Worker repatriations (MOM rules &amp; final clearance) — AI handles documentation; clearance decision is human.</span></li>
+      </ul>
+    </div>
+
+    <div class="grp">
+      <div class="grp-name">2 · Levy-Waiver Trigger Identification</div>
+      <ul class="tasks">
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Identify waiver eligibility events (hospitalisation, early repat, mid-month cancellation, AWOL); notify Payroll — AI detects &amp; routes.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Track submitted waiver status; provide outcome updates to Payroll.</span></li>
+      </ul>
+    </div>
+
+    <div class="grp">
+      <div class="grp-name">3 · Dormitory &amp; Movement Administration</div>
+      <ul class="tasks">
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Maintain a 1-year rolling dormitory bed forecast vs headcount.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Statutory <span class="reg">OFWAS</span> &amp; <span class="reg">PCP</span> updates — AI prepares.</span></li>
+        <li><span class="chip human">👤 Human</span><span class="t">Oversee physical bed allocations &amp; check-ins (executed by Assistant — physical act).</span></li>
+      </ul>
+    </div>
+
+    <div class="grp">
+      <div class="grp-name">4 · Worker Lifecycle &amp; Records</div>
+      <ul class="tasks">
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Maintain worker database, passport expirations, medical-exam schedules — AI tracks &amp; alerts.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Track weekly/monthly worker status (at work, leave, MC) &amp; AWOL counts; trigger waiver notifications.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Own home-leave management: rolling schedules, applications, return-date tracking, overstay early-warning.</span></li>
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Halt leave releases for workers with disciplinary / AWOL / permit issues — AI flags; coordination &amp; decision human.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Maintain live site-level headcount reconciliation (deployed vs payroll vs valid permit) for audit readiness.</span></li>
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Prepare documentation &amp; logistics for <span class="reg">MOM</span> inspections — AI compiles; Manager fronts.</span></li>
+        <li><span class="chip human">👤 Human</span><span class="t">Conduct initial fact-finding on worker grievances &amp; dormitory disputes; escalate.</span></li>
+      </ul>
+    </div>
+
+    <div class="grp">
+      <div class="grp-name">5 · Training, Performance &amp; Grants</div>
+      <ul class="tasks">
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Coordinate <span class="reg">CSOC/CoreTrade</span> training; manage R2→R1 upgrading.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Compile worker performance, attendance &amp; EHS violation records for review cycles.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Generate &amp; distribute worker increment &amp; bonus letters.</span></li>
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Handle worker insurance claims (<span class="reg">WICA</span> <span class="reg">FWMI</span>) — AI compiles docs, drafts MOM notifications, computes compensation; Executive liaises &amp; decides, escalates disputes.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Monitor MC frequency &amp; patterns for abuse; escalate suspected cases — AI detects patterns.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Administer worker training grants &amp; levy rebates.</span></li>
+        <li><span class="chip human">👤 Human</span><span class="t">Plan worker welfare programmes &amp; festive engagement — AI can draft plans; relationship/culture is human.</span></li>
+      </ul>
+    </div>
+
+    <div class="grp">
+      <div class="grp-name">6 · Cross-Training Duty</div>
+      <ul class="tasks">
+        <li><span class="chip human">👤 Human</span><span class="t">Designated secondary operator for Staff HR Ops in Executive (Staff)'s absence.</span></li>
+      </ul>
+    </div>
+  </article>
+
+  <!-- ROLE 4: EXECUTIVE (STAFF) -->
+  <article class="role staff">
+    <div class="role-head">
+      <div class="role-title">
+        <h3>Executive — Staff</h3>
+        <span class="role-scope">Recruitment, Staff Operations &amp; Workforce Planning</span>
+      </div>
+      <p class="role-purpose">Owns recruitment pipelines, staff lifecycle and workforce planning. Document, tracking and screening work is strongly AI-supportable; interviewing, exit conversations and engagement stay human.</p>
+      <div class="role-counts">
+        <span class="count auto">🤖 <b>10</b> AI-led</span>
+        <span class="count assist">🤝 <b>6</b> AI-assisted</span>
+        <span class="count human">👤 <b>4</b> Human-only</span>
+      </div>
+    </div>
+
+    <div class="grp">
+      <div class="grp-name">1 · Recruitment Operations</div>
+      <ul class="tasks">
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Coordinate staff recruitment &amp; prepare job descriptions — AI drafts JDs; Executive owns.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Ensure <span class="reg">FCF</span> compliance: 14-day MyCareersFuture ad window, no offers during window — AI tracks &amp; enforces dates.</span></li>
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Direct headhunting &amp; build internal talent pools — AI sources/screens; outreach is human.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Manage recruitment agencies; track replacement effectiveness.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Track staff &amp; worker recruitment costs.</span></li>
+        <li><span class="chip human">👤 Human</span><span class="t">Coordinate interviews &amp; prepare offers — AI schedules &amp; drafts offers; the interview is human.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Retain interview &amp; job-offer decision records ≥1 yr (anti-discrimination defensibility) — AI manages retention.</span></li>
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Compile HR doc packages for <span class="reg">BCA A1</span> renewals &amp; tenders; submit to Manager — AI collates.</span></li>
+      </ul>
+    </div>
+
+    <div class="grp">
+      <div class="grp-name">2 · Staff HR Operations</div>
+      <ul class="tasks">
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Oversee staff onboarding, confirmations &amp; exits — AI runs the checklist/workflow; Executive owns.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Track daily staff status breakdowns (at work, leave, MC).</span></li>
+        <li><span class="chip human">👤 Human</span><span class="t">Conduct initial fact-finding on staff grievances; escalate.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Administer staff bond documentation; issue bond letters; coordinate bond-break calcs with Payroll.</span></li>
+      </ul>
+    </div>
+
+    <div class="grp">
+      <div class="grp-name">3 · Organisation Structure &amp; Communications</div>
+      <ul class="tasks">
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Own org-chart maintenance (staff/workers/cost-centre tags must match HRIQ); submit for approval.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Maintain the staff directory.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Draft &amp; distribute routine company-wide announcements &amp; memos — AI drafts; Manager approves.</span></li>
+      </ul>
+    </div>
+
+    <div class="grp">
+      <div class="grp-name">4 · Staff Insurance &amp; Claims</div>
+      <ul class="tasks">
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Handle staff insurance claims (<span class="reg">WICA</span> <span class="reg">Group Medical</span>) — AI opens file, drafts MOM notifications, computes compensation; Executive liaises &amp; decides.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Support Group Medical claim queries; track status; coordinate payroll-linked adjustments.</span></li>
+      </ul>
+    </div>
+
+    <div class="grp">
+      <div class="grp-name">5 · Performance, Grants &amp; Retention</div>
+      <ul class="tasks">
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Coordinate quarterly staff performance review cycles — AI runs the cycle &amp; compiles; managers rate.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Prepare &amp; distribute staff increment &amp; bonus letters.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Administer staff training grants.</span></li>
+        <li><span class="chip human">👤 Human</span><span class="t">Track attrition &amp; turnover trends, conduct exit interviews — AI analyzes trends; the exit interview is human.</span></li>
+        <li><span class="chip human">👤 Human</span><span class="t">Plan staff engagement initiatives — AI drafts; culture is human.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Monitor MC frequency/patterns for staff; escalate suspected abuse.</span></li>
+      </ul>
+    </div>
+
+    <div class="grp">
+      <div class="grp-name">6 · Workforce Planning</div>
+      <ul class="tasks">
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Monitor staffing gaps &amp; key-person risks — AI surfaces; Executive interprets.</span></li>
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Identify training needs &amp; coordinate upskilling.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Flag key-person dependency risks where cross-training coverage is insufficient — AI computes coverage gaps.</span></li>
+      </ul>
+    </div>
+
+    <div class="grp">
+      <div class="grp-name">7 · Cross-Training Duty</div>
+      <ul class="tasks">
+        <li><span class="chip human">👤 Human</span><span class="t">Designated secondary operator for Payroll Processing in Executive (Payroll)'s absence.</span></li>
+      </ul>
+    </div>
+  </article>
+
+  <!-- ROLE 5: HR ASSISTANT -->
+  <article class="role asst">
+    <div class="role-head">
+      <div class="role-title">
+        <h3>HR Assistant</h3>
+        <span class="role-scope">Overall Support &amp; Administration</span>
+      </div>
+      <p class="role-purpose">Cross-pillar administrative support: high-volume data entry, physical coordination and logistics. Much of the data work is exactly what AI removes — leaving the genuinely physical tasks (assets, dormitory, transport) as human.</p>
+      <div class="role-counts">
+        <span class="count auto">🤖 <b>8</b> AI-led</span>
+        <span class="count assist">🤝 <b>2</b> AI-assisted</span>
+        <span class="count human">👤 <b>5</b> Human-only</span>
+      </div>
+    </div>
+
+    <div class="grp">
+      <div class="grp-name">1 · Payroll Support</div>
+      <ul class="tasks">
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Monitor OT submissions in HRIQ; follow up with site supervisors on missing entries — AI detects gaps &amp; auto-chases.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Flag abnormal OT patterns, missing approvals, data gaps to Payroll.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Assist in maintaining accurate attendance &amp; workforce records in HRIQ.</span></li>
+      </ul>
+    </div>
+
+    <div class="grp">
+      <div class="grp-name">2 · Foreign Worker &amp; Dormitory Support</div>
+      <ul class="tasks">
+        <li><span class="chip human">👤 Human</span><span class="t">Book repatriation air tickets &amp; arrange airport transport — AI can draft bookings; execution is physical/human.</span></li>
+        <li><span class="chip human">👤 Human</span><span class="t">Execute physical dormitory check-ins, check-outs &amp; bed assignments.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Scan &amp; maintain physical records (medical, passports, safety passes) — AI OCRs, indexes &amp; files.</span></li>
+        <li><span class="chip human">👤 Human</span><span class="t">Physical issuance &amp; recovery of worker assets (PPE, tools, access cards).</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Support IPA pipeline admin: file docs, update logs, flag expiry dates.</span></li>
+      </ul>
+    </div>
+
+    <div class="grp">
+      <div class="grp-name">3 · Staff Operations Support</div>
+      <ul class="tasks">
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Prepare physical &amp; digital staff onboarding kits — AI builds the digital kit; physical prep is human.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Initial HRIQ account creation for new hires (does <em>not</em> approve access levels — Manager does under PDPA).</span></li>
+        <li><span class="chip human">👤 Human</span><span class="t">Coordinate with IT &amp; Admin for asset issuance/recovery during on/offboarding.</span></li>
+        <li><span class="chip assist">🤝 Assist</span><span class="t">Assist with BCA licence &amp; tender documentation collation as directed.</span></li>
+      </ul>
+    </div>
+
+    <div class="grp">
+      <div class="grp-name">4 · General Administration</div>
+      <ul class="tasks">
+        <li><span class="chip human">👤 Human</span><span class="t">Assist with logistics &amp; execution for welfare programmes &amp; engagement events.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Route incoming general HR inquiries to the correct Executive — AI triages &amp; routes.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Initial admin screening/sorting of direct-hire &amp; walk-in applications; route shortlists.</span></li>
+        <li><span class="chip auto">🤖 AI-led</span><span class="t">Maintain master trackers (onboarding, offboarding, permits, IPA expiry, doc collation).</span></li>
+      </ul>
+    </div>
+  </article>
+
+  <!-- SUMMARY -->
+  <section id="summary">
+    <div class="sec-head">
+      <span class="sec-num">02 / THE NUMBERS</span>
+      <h2>Where AI lands across the department</h2>
+    </div>
+    <div class="summary">
+      <div class="stat auto"><div class="n">44</div><div class="l">🤖 AI-led tasks — automate end-to-end, human glances</div></div>
+      <div class="stat assist"><div class="n">32</div><div class="l">🤝 AI-assisted — AI drafts, human decides</div></div>
+      <div class="stat human"><div class="n">27</div><div class="l">👤 Human-only — judgment, physical, legal</div></div>
+    </div>
+    <p class="note">Roughly 75% of all HR tasks can be AI-led or AI-assisted. The portal's value is concentrated in Payroll (almost fully automatable) and in the tracking/compliance/document work spread across every role. Counts are approximate — several tasks blend modes.</p>
+  </section>
+
+  <!-- HUMAN-ONLY -->
+  <section id="human-only">
+    <div class="sec-head">
+      <span class="sec-num">03 / THE HUMAN LINE</span>
+      <h2>Tasks that stay human</h2>
+    </div>
+    <p class="sec-sub">These are fine to keep manual — they require judgment, legal accountability, a physical act, or a human relationship. AI may surface information into them, but should never perform them autonomously. Build the portal to <em>support</em> these, not replace them.</p>
+    <div class="human-list">
+      <div class="hitem"><b>Disciplinary decisions &amp; adjudication</b><span>Final calls on warnings, suspension, termination, retrenchment classification — Manager &amp; above.</span></div>
+      <div class="hitem"><b>Grievance handling</b><span>Initial fact-finding (FW/Staff) and final adjudication (Manager). Human conversations, human judgment.</span></div>
+      <div class="hitem"><b>Fronting MOM inspections &amp; audits</b><span>The Manager attends and represents the company in person.</span></div>
+      <div class="hitem"><b>Salary / bonus appeal decisions</b><span>AI compiles the case; the decision is human.</span></div>
+      <div class="hitem"><b>Final compensation approvals</b><span>Approving Letters of Consent, medical panels, and settlement adjudication under the DOA.</span></div>
+      <div class="hitem"><b>PDPA &amp; AI-tool governance</b><span>Approving access levels, retention policy and which AI tools may be used — legal accountability.</span></div>
+      <div class="hitem"><b>Team leadership &amp; mentorship</b><span>Managing, coaching and prioritising the HR team.</span></div>
+      <div class="hitem"><b>Interviews &amp; exit interviews</b><span>Face-to-face assessment and conversation.</span></div>
+      <div class="hitem"><b>Relationship-building</b><span>Overseas recruitment partners, agency relationships, candidate outreach, management partnering.</span></div>
+      <div class="hitem"><b>Engagement &amp; welfare culture</b><span>AI can draft plans; the human element of culture stays human.</span></div>
+      <div class="hitem"><b>Physical dormitory operations</b><span>Bed check-ins/outs, allocations on the ground.</span></div>
+      <div class="hitem"><b>Physical asset &amp; logistics handling</b><span>PPE/tools/access cards issuance &amp; recovery, ticketing &amp; transport, IT/Admin coordination, event logistics.</span></div>
+      <div class="hitem"><b>Cross-training coverage</b><span>Stepping in to operate a colleague's function during absence.</span></div>
+      <div class="hitem"><b>Final clearance decisions</b><span>Worker repatriation clearance, leave-release holds where judgment is involved.</span></div>
+    </div>
+  </section>
+
+  <!-- PORTAL ARCHITECTURE -->
+  <section id="portal">
+    <div class="sec-head">
+      <span class="sec-num">04 / THE BUILD</span>
+      <h2>How the portal could be structured</h2>
+    </div>
+    <p class="sec-sub">An HR-only application: every staff member logs into a role-shaped dashboard surfacing their tasks and the AI tools that serve them. No general-employee access. A shared layer of AI services powers all five workspaces.</p>
+
+    <!-- access guard -->
+    <div class="guard">
+      <h3>🔒 Access &amp; data layer — the non-negotiables</h3>
+      <ul>
+        <li><b>HR-only authentication.</b> Corporate SSO restricted to the HR security group. The portal is not visible to other employees — separate entirely from any future employee self-service.</li>
+        <li><b>Role-based access control (RBAC)</b> mirroring the six roles. A Payroll Executive sees payroll &amp; cost tools; an FW Executive sees worker-lifecycle tools; the Manager sees everything plus approvals. Access levels approved by the HR Manager under PDPA.</li>
+        <li><b>PDPA-by-design.</b> Role-scoped data visibility, full audit logging of every AI action, automatic enforcement of the Employment Act retention clock, and breach-alert protocols.</li>
+        <li><b>Maker-checker &amp; DOA routing built in.</b> AI prepares, a named human reviews/approves, and every approval is logged against the Delegation of Authority matrix.</li>
+        <li><b>Human-in-the-loop by default.</b> AI never finalises payroll, sends a statutory submission, or issues a letter without a human release step.</li>
+      </ul>
+    </div>
+
+    <h2 style="font-size:19px;margin:36px 0 4px;">Shared AI services</h2>
+    <p class="sec-sub" style="margin-top:6px;">Seven engines reused across all roles — this is where most of the 44 AI-led tasks live.</p>
+    <div class="arch">
+      <div class="module">
+        <h3>Compliance &amp; Early-Warning Monitor <span class="mtag">cross-role</span></h3>
+        <p>The single most valuable engine for a BCA A1 contractor — continuous watch over every regulatory clock, alerting before a breach.</p>
+        <ul>
+          <li>DRC headroom, BCA quota, IPA pipeline vs quota, R1/R2 ratios</li>
+          <li>Work-permit / passport / medical-exam expiry; licence conditions &amp; financial grading</li>
+          <li>OT statutory caps (Part IV), FCF 14-day advertising window, record-retention purge dates</li>
+        </ul>
+      </div>
+      <div class="module">
+        <h3>Calculation &amp; Reconciliation Engine <span class="mtag">Payroll · FW · Staff</span></h3>
+        <p>Deterministic math with anomaly detection — payroll, levies, encashment, bond-break, AME/compensation, premium benchmarking, manpower-cost reports. Runs under maker-checker.</p>
+      </div>
+      <div class="module">
+        <h3>Document &amp; Letter Generator <span class="mtag">cross-role</span></h3>
+        <p>Drafts increment/bonus/bond/warning letters, JDs, memos, announcements, and MOM notification drafts from templates + HRIQ data. Always routed to a human for approval.</p>
+      </div>
+      <div class="module">
+        <h3>HR Knowledge Assistant <span class="mtag">cross-role</span></h3>
+        <p>Retrieval-grounded Q&amp;A over the Employment Act, EFMA, MOM circulars, BCA conditions, internal SOPs and the DOA matrix. Answers "can we…?" with a cited source — never freehand legal advice.</p>
+      </div>
+      <div class="module">
+        <h3>Report Builder <span class="mtag">Manager · all</span></h3>
+        <p>One-click generation of the weekly HR Assurance Summary, manpower cost by cost centre, OT exception, AWOL, attrition and status-breakdown reports.</p>
+      </div>
+      <div class="module">
+        <h3>Workflow, Approvals &amp; Case Tracking <span class="mtag">cross-role</span></h3>
+        <p>Routes maker-checker and DOA approvals, tracks grievance/disciplinary cases through their defined flow, manages escalation chains, and keeps a complete audit trail.</p>
+      </div>
+      <div class="module">
+        <h3>Recruitment &amp; Intake Assistant <span class="mtag">Staff · Assistant</span></h3>
+        <p>Resume parsing, shortlisting, interview scheduling, agency-performance tracking, and triage/routing of incoming HR inquiries and walk-in applications.</p>
+      </div>
+    </div>
+
+    <h2 style="font-size:19px;margin:36px 0 4px;">Role workspaces</h2>
+    <p class="sec-sub" style="margin-top:6px;">Each login lands on a dashboard composed from the shared services, filtered to that role's tasks.</p>
+    <div class="arch">
+      <div class="module" style="border-left:5px solid var(--r-mgr);"><h3>HR Manager console</h3><p>Approval queue, HR Assurance Summary, compliance risk board, comp-review workspace, team workload view, PDPA &amp; AI-governance controls.</p></div>
+      <div class="module" style="border-left:5px solid var(--r-pay);"><h3>Payroll workspace</h3><p>Payroll run + reconciliation, CPF/IR21/IR8A prep, levy &amp; waiver processing, OT audit, cost-centre reporting, insurance records.</p></div>
+      <div class="module" style="border-left:5px solid var(--r-fw);"><h3>Foreign-Worker workspace</h3><p>Live DRC/IPA board, permit lifecycle, dormitory forecast, worker status &amp; AWOL tracking, home-leave management, claims compilation.</p></div>
+      <div class="module" style="border-left:5px solid var(--r-staff);"><h3>Staff workspace</h3><p>Recruitment pipeline + FCF tracker, onboarding/exit workflows, org chart &amp; directory, performance cycles, attrition analytics, staff claims.</p></div>
+      <div class="module" style="border-left:5px solid var(--r-asst);"><h3>Assistant workspace</h3><p>Master trackers, document scanning/indexing, OT follow-up queue, account-creation tasks, expiry-alert dashboard, inquiry routing.</p></div>
+    </div>
+  </section>
+
+  <footer>
+    Source: <b>HR JOBS.docx</b> — A1 Contractor, 6-role HR structure. This blueprint maps the document's tasks to AI capability and a portal design; it is a planning artifact, not a compliance ruling. Verify all statutory references (MOM, BCA, CPF, PDPA) against current regulations before build. Task counts are approximate.
+  </footer>
+
+</div>
