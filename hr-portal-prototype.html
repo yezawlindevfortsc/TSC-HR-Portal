@@ -1,6 +1,7 @@
 <meta charset="utf-8">
 <title>HR Portal — Phase 1 Prototype</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<script defer src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.26.1/lib/msal-browser.min.js"></script>
 <style>
   /* ============ Design system — "light workspace" ============
      Modern SaaS shell: floating sidebar, translucent header,
@@ -872,7 +873,7 @@ function renderRecruitment(){
       <div id="hirerErr" class="note" style="color:var(--crit);display:none;margin-top:8px"></div>
     </div>
   </details>`;
-  h+=`<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap"><button class="btn" id="addCand">＋ Add candidate (upload CV)</button><button class="btn ghost" id="prevIntake">↗ Preview candidate application page</button></div>`;
+  h+=`<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center"><button class="btn" id="addCand">＋ Add candidate (upload CV)</button><button class="btn ghost" id="prevIntake">↗ Preview candidate application page</button><button class="btn ghost" id="spCfgBtn" title="Uploaded CVs are also filed to the company SharePoint folder">📁 SharePoint: <span style="font-family:var(--mono);font-size:11px">${escHtml(spStatusText())}</span></button></div>`;
   const rej=CANDIDATES.filter(c=>c.stage==="rejected").length;
   h+=`<div class="grid g-kpi" style="margin-bottom:16px">
     <div class="card tile info"><div class="lab">In pipeline</div><div class="val">${CANDIDATES.filter(c=>c.stage!=='rejected').length}</div><div class="sub">active candidates</div></div>
@@ -913,6 +914,7 @@ function renderRecruitment(){
   main.querySelectorAll("[data-rmhirer]").forEach(b=>b.onclick=()=>{ HIRERS.splice(+b.dataset.rmhirer,1); renderRecruitment(); });
   const ac=document.getElementById("addCand"); if(ac) ac.onclick=addCandidateModal;
   const pi=document.getElementById("prevIntake"); if(pi) pi.onclick=intakePreview;
+  const sp=document.getElementById("spCfgBtn"); if(sp) sp.onclick=spOpenSettings;
   wireRecruitTabs();
 }
 function wireRecruitTabs(){ main.querySelectorAll("[data-rt]").forEach(b=>b.onclick=()=>{ recruitTab=b.dataset.rt; renderRecruitment(); }); }
@@ -935,7 +937,10 @@ function candCard(c,rank){
   const meta=[];
   if(c.score!=null&&c.stage!=="screening") meta.push("AI fit "+c.score);
   if(c.source&&c.stage==="screening") meta.push(c.source.split(" · ")[0]);
-  if(c.cv) meta.push("📎 CV");
+  if(c.spUrl) meta.push(`<a href="${escHtml(c.spUrl)}" target="_blank" rel="noopener" style="color:var(--steel);text-decoration:none">📁 SharePoint</a>`);
+  else if(c.spStatus==="uploading") meta.push("📁 uploading…");
+  else if(c.spStatus==="failed") meta.push(`<span style="color:var(--crit)" title="${escHtml(c.spErr||"upload failed")}">📁 upload failed</span>`);
+  else if(c.cv) meta.push("📎 CV");
   if(c.hirer&&c.stage!=="screening") meta.push(c.hirer);
   if(c.invited&&c.stage==="interview") meta.push("invited");
   if(c.offerSent&&c.stage==="offer") meta.push("offer sent");
@@ -1215,8 +1220,17 @@ function addCandidateModal(){
     if(!m.ov.querySelector("#acConsent").checked){ err.textContent="PDPA consent confirmation is required."; err.style.display="block"; return; }
     const src=m.ov.querySelector("#acSrc").value, srcD=m.ov.querySelector("#acSrcD").value.trim(), source=src+(srcD?" · "+srcD:"");
     aiParseFlow(m,body,foot,f,(d)=>{
-      CANDIDATES.push({id:nextCandId(),name:d.name,role:d.role,exp:d.exp,stage:"screening",source,cv:f.name,email:d.email,phone:d.phone,skills:d.skills,cvText:d.cvText,parsed:d.real});
-      m.close(); renderRecruitment();
+      const rec={id:nextCandId(),name:d.name,role:d.role,exp:d.exp,stage:"screening",source,cv:f.name,email:d.email,phone:d.phone,skills:d.skills,cvText:d.cvText,parsed:d.real};
+      CANDIDATES.push(rec);
+      m.close();
+      if(spConfigured()&&typeof msal!=="undefined"){
+        rec.spStatus="uploading";
+        spUpload(f)
+          .then(j=>{ rec.spStatus="done"; rec.spUrl=j.webUrl; })
+          .catch(err=>{ rec.spStatus="failed"; rec.spErr=String(err.message||err); })
+          .finally(()=>{ if(view==="recruitment"&&recruitTab==="candidates") renderRecruitment(); });
+      }
+      renderRecruitment();
     });
   };
 }
@@ -1553,6 +1567,97 @@ function initDesigner(){
       }
     });
   }
+}
+
+/* ---------- SHAREPOINT (Microsoft Graph) INTEGRATION ----------
+   Interim delegated-auth wiring: the signed-in HR user's own M365 account
+   uploads CVs directly browser → Graph → SharePoint. Files never touch the
+   web host. The Phase-0 backend will switch to app-only Sites.Selected. */
+const SP_LS="hrportal_sp_cfg";
+let spCfg=(function(){ try{ return JSON.parse(localStorage.getItem(SP_LS))||{}; }catch(e){ return {}; } })();
+let spMsal=null, spInited=false, spDrive=null;
+function spConfigured(){ return !!(spCfg.tenant&&spCfg.client&&spCfg.folderUrl); }
+function spSave(){ try{ localStorage.setItem(SP_LS,JSON.stringify(spCfg)); }catch(e){} }
+function spStatusText(){
+  if(!spConfigured()) return "not configured";
+  if(typeof msal==="undefined") return "unavailable here";
+  return spCfg.lastUser?("connected · "+spCfg.lastUser):"configured — sign in";
+}
+async function spEnsure(){
+  if(typeof msal==="undefined") throw new Error("Microsoft sign-in library not loaded (blocked in this environment, works on the Vercel/local site).");
+  if(!spConfigured()) throw new Error("SharePoint not configured — open 📁 SharePoint settings first.");
+  if(!spMsal) spMsal=new msal.PublicClientApplication({
+    auth:{ clientId:spCfg.client, authority:"https://login.microsoftonline.com/"+spCfg.tenant,
+           redirectUri:location.origin+location.pathname },
+    cache:{ cacheLocation:"localStorage" }});
+  if(!spInited){ await spMsal.initialize(); spInited=true; }
+  return spMsal;
+}
+async function spSignIn(){
+  const pca=await spEnsure();
+  const res=await pca.loginPopup({ scopes:["User.Read","Files.ReadWrite.All"] });
+  spCfg.lastUser=res.account.username; spSave();
+  return res.account;
+}
+async function spToken(interactive){
+  const pca=await spEnsure();
+  const acct=pca.getAllAccounts()[0];
+  if(!acct){ if(interactive) return (await spSignIn(), spToken(false)); throw new Error("Not signed in to Microsoft 365 — open 📁 SharePoint settings and sign in."); }
+  try{ const r=await pca.acquireTokenSilent({ scopes:["Files.ReadWrite.All"], account:acct }); return r.accessToken; }
+  catch(e){ if(interactive){ const r=await pca.acquireTokenPopup({ scopes:["Files.ReadWrite.All"] }); return r.accessToken; } throw e; }
+}
+async function spResolveFolder(interactive){
+  if(spDrive) return spDrive;
+  const t=await spToken(interactive);
+  const enc="u!"+btoa(spCfg.folderUrl).replace(/=+$/,"").replace(/\//g,"_").replace(/\+/g,"-");
+  const r=await fetch("https://graph.microsoft.com/v1.0/shares/"+enc+"/driveItem?$select=id,name,webUrl,folder,parentReference",{ headers:{ Authorization:"Bearer "+t }});
+  if(!r.ok) throw new Error("Could not open the SharePoint folder (HTTP "+r.status+"). Check the folder URL and your access.");
+  const j=await r.json();
+  if(!j.folder) throw new Error("That URL points to a file, not a folder — paste the folder's link.");
+  spDrive={ driveId:j.parentReference.driveId, itemId:j.id, webUrl:j.webUrl, name:j.name };
+  return spDrive;
+}
+async function spUpload(file){
+  if(file.size>4*1024*1024) throw new Error("File exceeds the 4 MB interim upload limit.");
+  const t=await spToken(false);
+  const d=await spResolveFolder(false);
+  const safe=(new Date().toISOString().slice(0,10))+"_"+file.name.replace(/[#%*:<>?/\\|{}]/g,"_");
+  const url="https://graph.microsoft.com/v1.0/drives/"+d.driveId+"/items/"+d.itemId+":/"+encodeURIComponent(safe)+":/content?@microsoft.graph.conflictBehavior=rename";
+  const r=await fetch(url,{ method:"PUT", headers:{ Authorization:"Bearer "+t, "Content-Type":file.type||"application/octet-stream" }, body:file });
+  if(!r.ok) throw new Error("Upload failed (HTTP "+r.status+")");
+  return await r.json();
+}
+function spOpenSettings(){
+  const m=openModal(`
+    <div style="background:var(--ink);color:#eaf1f8;padding:13px 18px;display:flex;align-items:center;gap:8px"><span>📁</span><b>SharePoint connection</b><span style="margin-left:auto;font-family:var(--mono);font-size:10px;color:#9fb6cc;text-transform:uppercase;letter-spacing:.08em">delegated · your M365 account</span></div>
+    <div style="padding:18px 20px;overflow:auto">
+      <p style="margin:0 0 14px;font-size:12.5px;color:var(--slate-2)">Uploads go directly from your browser to the company SharePoint folder as <b>you</b> — the web host never sees the file. Ask IT for the app registration values below (they are identifiers, not secrets).</p>
+      <div class="field"><label>Directory (tenant) ID or domain *</label><input id="spTen" placeholder="e.g. tiongseng.com.sg or a GUID" value="${escHtml(spCfg.tenant||"")}"></div>
+      <div class="field"><label>Application (client) ID *</label><input id="spCli" placeholder="GUID from the Entra app registration" value="${escHtml(spCfg.client||"")}"></div>
+      <div class="field"><label>SharePoint folder URL *</label><input id="spUrl" placeholder="Paste the folder link from SharePoint" value="${escHtml(spCfg.folderUrl||"")}"></div>
+      <div id="spMsg" class="note" style="display:none;margin-top:4px"></div>
+    </div>
+    <div style="padding:14px 20px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--line-2);flex-wrap:wrap">
+      <button class="btn ghost" data-close>Close</button>
+      <button class="btn ghost" id="spSaveBtn">Save</button>
+      <button class="btn" id="spConnBtn">Sign in &amp; test connection</button>
+    </div>`,600);
+  const g=s=>m.ov.querySelector(s);
+  const msg=(txt,err)=>{ const el=g("#spMsg"); el.textContent=txt; el.style.display="block"; el.style.color=err?"var(--crit)":"var(--ok)"; };
+  const readCfg=()=>{ spCfg.tenant=g("#spTen").value.trim(); spCfg.client=g("#spCli").value.trim(); spCfg.folderUrl=g("#spUrl").value.trim(); spMsal=null; spInited=false; spDrive=null; spSave(); };
+  g("#spSaveBtn").onclick=()=>{ readCfg(); msg("Saved. Now sign in & test."); if(view==="recruitment") renderRecruitment(); };
+  g("#spConnBtn").onclick=async()=>{
+    readCfg();
+    if(!spConfigured()){ msg("All three fields are required.",true); return; }
+    try{
+      msg("Opening Microsoft sign-in…");
+      await spSignIn();
+      msg("Signed in as "+spCfg.lastUser+" — checking folder…");
+      const d=await spResolveFolder(true);
+      msg("✓ Connected — uploads will go to \""+d.name+"\". You can close this window.");
+      if(view==="recruitment") renderRecruitment();
+    }catch(err){ msg(String(err.message||err),true); }
+  };
 }
 
 /* ---------- APPROVALS ---------- */
