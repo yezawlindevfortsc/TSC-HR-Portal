@@ -663,6 +663,7 @@ function renderDocuments(){
 }
 function statusPill(s){const m={Draft:'info',Released:'ok',Signed:'ok',Rejected:'crit'};return `<span class="pill ${m[s]||'info'}">${s}</span>`;}
 function renderDocHistory(){
+  if(typeof saveAppState==="function") saveAppState();
   const wrap=document.getElementById("docHistoryWrap"); if(!wrap) return;
   const emp=EMPLOYEES.find(x=>x.id===docState.emp);
   const mine=docHistory.filter(d=>d.empId===docState.emp);
@@ -884,20 +885,24 @@ function renderRecruitment(){
     </div>
   </details>`;
   h+=`<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center"><button class="btn" id="addCand">＋ Add candidate (upload CV)</button><button class="btn ghost" id="prevIntake">↗ Preview candidate application page</button><button class="btn ghost" id="spCfgBtn" title="Uploaded CVs are also filed to the company SharePoint folder">📁 SharePoint: <span style="font-family:var(--mono);font-size:11px">${escHtml(spStatusText())}</span></button><button class="btn ghost" id="aiCfgBtn" title="LLM that reads and summarises uploaded CVs — switchable provider">🧠 AI reader: <span style="font-family:var(--mono);font-size:11px">${escHtml(aiStatusText())}</span></button></div>`;
-  const rej=CANDIDATES.filter(c=>c.stage==="rejected").length;
+  const pubCols=wfPubCols();
+  const atNode=t=>CANDIDATES.filter(c=>c.stage!=="rejected"&&!c.done&&(pubNodeById(c.nodeId)||{}).type===t).length;
+  const doneN=CANDIDATES.filter(c=>c.done).length;
+  h+=`<p class="note" style="margin:0 0 12px;font-style:normal">This board is generated from your <b>published workflow v${WFPUB.version}</b> (${pubCols.length} stages, left-to-right from the canvas). Change it in ⚙ Workflow Designer and hit 🚀 Publish.</p>`;
   h+=`<div class="grid g-kpi" style="margin-bottom:16px">
-    <div class="card tile info"><div class="lab">In pipeline</div><div class="val">${CANDIDATES.filter(c=>c.stage!=='rejected').length}</div><div class="sub">active candidates</div></div>
-    <div class="card tile warn"><div class="lab">Awaiting hirer</div><div class="val">${CANDIDATES.filter(c=>c.stage==='hirer').length}</div><div class="sub">sent to hiring managers</div></div>
-    <div class="card tile info"><div class="lab">At offer</div><div class="val">${CANDIDATES.filter(c=>c.stage==='offer').length}</div><div class="sub">offer stage</div></div>
-    <div class="card tile ok"><div class="lab">Hired (YTD)</div><div class="val">${CANDIDATES.filter(c=>c.stage==='hired').length}</div><div class="sub">letters recorded</div></div>
+    <div class="card tile info"><div class="lab">In pipeline</div><div class="val">${CANDIDATES.filter(c=>c.stage!=="rejected"&&!c.done).length}</div><div class="sub">active candidates</div></div>
+    <div class="card tile warn"><div class="lab">Awaiting hirer</div><div class="val">${atNode("hirer")}</div><div class="sub">with hiring managers</div></div>
+    <div class="card tile info"><div class="lab">At offer</div><div class="val">${atNode("offer")+atNode("record")}</div><div class="sub">offer &amp; signature stage</div></div>
+    <div class="card tile ok"><div class="lab">Hired (YTD)</div><div class="val">${doneN}</div><div class="sub">letters recorded</div></div>
   </div>`;
-  h+=`<div class="tblscroll"><div style="display:flex;gap:12px;min-width:820px;align-items:flex-start;padding-bottom:4px">`;
-  STAGES.forEach(s=>{
-    let items=CANDIDATES.filter(c=>c.stage===s[0]);
-    const ranked=s[0]==="screening";
+  h+=`<div class="tblscroll"><div style="display:flex;gap:12px;min-width:${Math.max(820,pubCols.length*172)}px;align-items:flex-start;padding-bottom:4px">`;
+  pubCols.forEach(col=>{
+    const nd=col.node;
+    let items=CANDIDATES.filter(c=>c.stage!=="rejected"&&c.nodeId===nd.id);
+    const ranked=nd.type==="emailHirer";
     if(ranked) items=items.slice().sort((a,b)=>fitScore(b)-fitScore(a));
     const hint=ranked?` <span style="text-transform:none;color:var(--slate-3)">· by fit</span>`:"";
-    h+=`<div style="flex:1;min-width:158px"><div style="font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--slate-2);padding:6px 4px;display:flex;justify-content:space-between"><span>${s[1]}${hint}</span><span>${items.length}</span></div>`;
+    h+=`<div style="flex:1;min-width:158px"><div style="font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--slate-2);padding:6px 4px;display:flex;justify-content:space-between"><span>${escHtml(col.label)}${hint}</span><span>${items.length}</span></div>`;
     h+=(items.map((c,idx)=>candCard(c,ranked?idx+1:null)).join("")||`<div class="note" style="padding:8px 4px">—</div>`);
     h+=`</div>`;
   });
@@ -905,11 +910,11 @@ function renderRecruitment(){
   const rejected=CANDIDATES.filter(c=>c.stage==="rejected");
   if(rejected.length){
     h+=`<details class="card" style="margin-top:14px"><summary style="cursor:pointer;font-weight:600;font-size:14px">✕ Rejected / declined <span style="font-family:var(--mono);font-size:11px;color:var(--slate-2);font-weight:400">${rejected.length} · records retained ≥1 yr (MOM defensibility)</span></summary>
-      <div style="margin-top:12px">`+tbl(["Candidate","Role","Stage reached","Reason","Date"],rejected.map(c=>[c.name+` <span class="mono" style="color:var(--slate-3)">${c.id}</span>`,c.role,(STAGES.find(s=>s[0]===c.prevStage)||["","Screening"])[1],c.rejReason||"—",c.rejWhen||TODAY]))+`</div></details>`;
+      <div style="margin-top:12px">`+tbl(["Candidate","Role","Stage reached","Reason","Date"],rejected.map(c=>[c.name+` <span class="mono" style="color:var(--slate-3)">${c.id}</span>`,c.role,c.prevStageLabel||(STAGES.find(s=>s[0]===c.prevStage)||["","—"])[1],c.rejReason||"—",c.rejWhen||TODAY]))+`</div></details>`;
   }
-  h+=`<p class="note">Prototype — auto-emails are simulated previews; advancing a candidate would write to the audit trail. Signed Employment Letters also appear in the Documents history. Offers are blocked while a role's FCF advertising window is open (see Compliance Monitor).</p>`;
+  h+=`<p class="note">Auto-emails are simulated previews; Signed Employment Letters also appear in Documents history; offers are blocked while a role's FCF window is open. Candidates, hirers and workflows persist in this browser. <button class="btn ghost" id="resetDemo" style="padding:3px 10px;font-size:11px;margin-left:6px" title="Clears saved candidates, hirers and published workflow, restores demo data">Reset demo data</button></p>`;
   main.innerHTML=h;
-  main.querySelectorAll("[data-act]").forEach(b=>b.onclick=()=>candAction(b.dataset.act,b.dataset.id));
+  main.querySelectorAll("[data-act]").forEach(b=>b.onclick=()=>nodeAction(b.dataset.act,b.dataset.id));
   const add=document.getElementById("addHirer");
   if(add) add.onclick=()=>{
     const n=document.getElementById("hName").value.trim();
@@ -926,6 +931,7 @@ function renderRecruitment(){
   const pi=document.getElementById("prevIntake"); if(pi) pi.onclick=intakePreview;
   const sp=document.getElementById("spCfgBtn"); if(sp) sp.onclick=spOpenSettings;
   const ai=document.getElementById("aiCfgBtn"); if(ai) ai.onclick=aiOpenSettings;
+  const rd=document.getElementById("resetDemo"); if(rd) rd.onclick=()=>{ localStorage.removeItem(APP_LS); localStorage.removeItem(WF_PUB_LS); localStorage.removeItem(WF_LS); location.reload(); };
   wireRecruitTabs();
 }
 function wireRecruitTabs(){ main.querySelectorAll("[data-rt]").forEach(b=>b.onclick=()=>{ recruitTab=b.dataset.rt; renderRecruitment(); }); }
@@ -937,27 +943,37 @@ function hBars(rows){
     <div class="hval">${r[1]}</div></div>`).join("")+`</div>`;
 }
 function recruitStatsHTML(){
-  const stageDefs=[["screening","CV Screening"],["hirer","With Hirer"],["interview","Interview"],["offer","Offer"],["hired","Hired"],["rejected","Rejected / declined"]];
-  const byStage=stageDefs.map(s=>[s[1],CANDIDATES.filter(c=>c.stage===s[0]).length]);
+  const cols=wfPubCols();
+  const nodeOf=c=>pubNodeById(c.nodeId)||null;
+  const hired=CANDIDATES.filter(c=>c.done).length;
+  const rejected=CANDIDATES.filter(c=>c.stage==="rejected").length;
+  const byStage=cols.map(col=>[col.label,CANDIDATES.filter(c=>c.stage!=="rejected"&&!c.done&&c.nodeId===col.node.id).length]);
+  byStage.push(["Hired (completed)",hired],["Rejected / declined",rejected]);
   const roles={}; CANDIDATES.forEach(c=>{ roles[c.role||"—"]=(roles[c.role||"—"]||0)+1; });
   const byRole=Object.entries(roles).sort((a,b)=>b[1]-a[1]);
   const srcs={}; CANDIDATES.forEach(c=>{ const s=(c.source||"Seeded demo data").split(" · ")[0]; srcs[s]=(srcs[s]||0)+1; });
   const bySrc=Object.entries(srcs).sort((a,b)=>b[1]-a[1]);
   const n=CANDIDATES.length;
-  const active=CANDIDATES.filter(c=>c.stage!=="rejected"&&c.stage!=="hired").length;
-  const hired=CANDIDATES.filter(c=>c.stage==="hired").length;
-  const rejected=CANDIDATES.filter(c=>c.stage==="rejected").length;
-  const interviews=CANDIDATES.filter(c=>c.stage==="interview").length;
-  const offers=CANDIDATES.filter(c=>c.stage==="offer").length;
+  const active=CANDIDATES.filter(c=>c.stage!=="rejected"&&!c.done).length;
+  const atT=t=>CANDIDATES.filter(c=>c.stage!=="rejected"&&!c.done&&(nodeOf(c)||{}).type===t).length;
+  const interviews=atT("invite");
+  const offers=atT("offer")+atT("record");
   const avgFit=n?Math.round(CANDIDATES.reduce((a,c)=>a+fitScore(c),0)/n):0;
   const onSp=CANDIDATES.filter(c=>c.spUrl).length;
   const convPct=(hired+rejected)?Math.round(hired/(hired+rejected)*100):null;
 
-  const statusRows=CANDIDATES.filter(c=>["interview","offer","hired"].includes(c.stage)).map(c=>{
+  const WAIT_TYPES=["invite","fcf","review","doa","offer","record","hirer"];
+  const statusRows=CANDIDATES.filter(c=>c.stage!=="rejected"&&(c.done||WAIT_TYPES.includes((nodeOf(c)||{}).type))).map(c=>{
+    const t=c.done?"__done":(nodeOf(c)||{}).type;
     let st;
-    if(c.stage==="interview") st=c.invited?`<span class="pill info">Invited — scheduling</span>`:`<span class="pill warn">Awaiting invite</span>`;
-    else if(c.stage==="offer") st=c.offerSent?`<span class="pill warn">Offer sent — awaiting signature</span>`:(fcfBlock(c.role)?`<span class="pill crit">Offer blocked — FCF window</span>`:`<span class="pill info">Ready to send offer</span>`);
-    else st=`<span class="pill ok">Hired · letter ${escHtml(c.letterRecorded||TODAY)}</span>`;
+    if(t==="__done") st=`<span class="pill ok">Hired · letter ${escHtml(c.letterRecorded||TODAY)}</span>`;
+    else if(t==="fcf") st=`<span class="pill crit">Held — FCF advertising window</span>`;
+    else if(t==="hirer") st=`<span class="pill warn">Awaiting hirer response</span>`;
+    else if(t==="review") st=`<span class="pill warn">Awaiting human review</span>`;
+    else if(t==="doa") st=`<span class="pill warn">Awaiting DOA approval</span>`;
+    else if(t==="invite") st=`<span class="pill info">Interview — invite to send</span>`;
+    else if(t==="offer") st=fcfBlock(c.role)?`<span class="pill crit">Offer blocked — FCF window</span>`:`<span class="pill info">Ready to send offer</span>`;
+    else st=`<span class="pill warn">Offer sent — awaiting signature</span>`;
     const cvs=c.spUrl?`<a href="${escHtml(c.spUrl)}" target="_blank" rel="noopener" style="color:var(--steel)">📁 filed</a>`:(c.spStatus==="failed"?`<span style="color:var(--crit)">failed</span>`:"—");
     return [`${escHtml(c.name)} <span class="mono" style="color:var(--slate-3)">${c.id}</span>`,escHtml(c.role||"—"),`<span class="num">${fitScore(c)}</span>`,escHtml(c.hirer||"—"),st,cvs];
   });
@@ -983,36 +999,48 @@ function recruitStatsHTML(){
   <div class="card" style="margin-top:16px"><h3>Interview &amp; offer status <span class="count">${statusRows.length} candidates at decision stages</span></h3>
     ${statusRows.length?tbl(["Candidate","Role","AI fit","Hirer","Status","CV"],statusRows):`<p class="note">No candidates at interview or offer stage yet.</p>`}
   </div>
-  <p class="note">Live view of this session's pipeline (demo data until real candidates flow in). In production these statistics come from the database and include time-to-hire and recruitment-cost trends per the job scopes.</p>`;
+  <p class="note">Live view driven by your published workflow v${WFPUB.version} — data persists in this browser. In production these statistics come from the shared database and add time-to-hire and recruitment-cost trends per the job scopes.</p>`;
 }
 function candCard(c,rank){
+  const nd=pubNodeById(c.nodeId);
+  const t=c.done?"__done":(nd?nd.type:"__lost");
+  const bs="width:100%;font-size:12px;padding:7px";
   let action="";
-  if(c.stage==="screening"){
+  if(t==="__done") action=`<div class="pill ok" style="width:100%;justify-content:center">✓ Letter signed · ${c.letterRecorded||TODAY}</div>`;
+  else if(c.deadEnd) action=`<div class="pill warn" style="width:100%;justify-content:center" title="This node has no outgoing connection in the published workflow">⚠ No next step — fix &amp; republish</div><button class="btn ghost" data-act="advance" data-id="${c.id}" style="${bs};margin-top:6px">Re-check ▶</button>`;
+  else if(t==="__lost") action=`<button class="btn ghost" data-act="advance" data-id="${c.id}" style="${bs}">Place in workflow ▶</button>`;
+  else if(t==="emailHirer"){
     if(HIRERS.length===0) action=`<div class="pill warn" style="width:100%;justify-content:center">Add a hirer first</div>`;
     else action=`<select id="hsel-${c.id}" aria-label="Select hirer" style="width:100%;font-size:12px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;margin-bottom:6px">${HIRERS.map((x,i)=>`<option value="${i}" ${ROLE_HIRER[c.role]===x.name?'selected':''}>${x.name} · ${x.dept||''}</option>`).join("")}</select>
-      <button class="btn" data-act="screen" data-id="${c.id}" style="width:100%;font-size:12px;padding:7px">AI screen &amp; email hirer ▶</button>`;
+      <button class="btn" data-act="sendHirer" data-id="${c.id}" style="${bs}">AI screen &amp; email hirer ▶</button>`;
   }
-  else if(c.stage==="hirer") action=`<div style="font-size:10px;color:var(--slate-3);font-family:var(--mono);margin-bottom:5px">CV emailed via secure link — record hirer's response:</div><div style="display:flex;gap:6px"><button class="btn ok" data-act="interested" data-id="${c.id}" style="flex:1;font-size:12px;padding:7px">✓ Hirer interested</button><button class="btn ghost" data-act="pass" data-id="${c.id}" style="font-size:12px;padding:7px">Passed</button></div>`;
-  else if(c.stage==="interview") action=c.invited?`<button class="btn" data-act="tooffer" data-id="${c.id}" style="width:100%;font-size:12px;padding:7px">Proceed to offer ▶</button>`:`<button class="btn" data-act="invite" data-id="${c.id}" style="width:100%;font-size:12px;padding:7px">✉ Send interview invite</button>`;
-  else if(c.stage==="offer"){
+  else if(t==="hirer") action=`<div style="font-size:10px;color:var(--slate-3);font-family:var(--mono);margin-bottom:5px">CV emailed via secure link — record hirer's response:</div><div style="display:flex;gap:6px"><button class="btn ok" data-act="interested" data-id="${c.id}" style="flex:1;font-size:12px;padding:7px">✓ Hirer interested</button><button class="btn ghost" data-act="pass" data-id="${c.id}" style="font-size:12px;padding:7px">Passed</button></div>`;
+  else if(t==="review"||t==="doa") action=`<div style="font-size:10px;color:var(--slate-3);font-family:var(--mono);margin-bottom:5px">${t==="doa"?"Approval (DOA) required:":"Human review required:"}</div><div style="display:flex;gap:6px"><button class="btn ok" data-act="approve" data-id="${c.id}" style="flex:1;font-size:12px;padding:7px">✓ Approve</button><button class="btn ghost" data-act="rejectGate" data-id="${c.id}" style="font-size:12px;padding:7px">✕ Reject</button></div>`;
+  else if(t==="invite") action=`<button class="btn" data-act="invite" data-id="${c.id}" style="${bs}">✉ Send interview invite</button>`;
+  else if(t==="fcf"){
     const fb=fcfBlock(c.role);
-    if(c.offerSent) action=`<button class="btn ok" data-act="sign" data-id="${c.id}" style="width:100%;font-size:12px;padding:7px;margin-bottom:6px">📝 Record signed letter</button><button class="btn ghost" data-act="declined" data-id="${c.id}" style="width:100%;font-size:12px;padding:7px">Offer declined</button>`;
-    else if(fb) action=`<div class="pill crit" style="width:100%;justify-content:center" title="Fair Consideration Framework — no offers during the mandatory advertising window">⛔ FCF window open · ${14-fb.days}d left — offer blocked</div>`;
-    else action=`<button class="btn" data-act="offer" data-id="${c.id}" style="width:100%;font-size:12px;padding:7px">✉ Send offer email</button>`;
+    action=`<div class="pill crit" style="width:100%;justify-content:center" title="Fair Consideration Framework — held until the advertising window is served">⛔ Held — FCF window${fb?` · ${14-fb.days}d left`:""}</div><button class="btn ghost" data-act="fcfRelease" data-id="${c.id}" style="${bs};margin-top:6px;font-size:11px;padding:5px">(demo) mark window served</button>`;
   }
-  else if(c.stage==="hired") action=`<div class="pill ok" style="width:100%;justify-content:center">✓ Letter signed · ${c.letterRecorded||TODAY}</div>`;
+  else if(t==="offer"){
+    const fb=fcfBlock(c.role);
+    if(fb) action=`<div class="pill crit" style="width:100%;justify-content:center" title="No offers during the mandatory advertising window">⛔ FCF window open · ${14-fb.days}d left — offer blocked</div>`;
+    else action=`<button class="btn" data-act="offer" data-id="${c.id}" style="${bs}">✉ Send offer email</button>`;
+  }
+  else if(t==="record") action=`<button class="btn ok" data-act="sign" data-id="${c.id}" style="${bs};margin-bottom:6px">📝 Record signed letter</button><button class="btn ghost" data-act="declined" data-id="${c.id}" style="${bs}">Offer declined</button>`;
+  else if(t==="draft"||t==="parse"||t==="screen") action=`<button class="btn ghost" data-act="advance" data-id="${c.id}" style="${bs}">Advance ▶</button>`;
+  else action=`<button class="btn ghost" data-act="advance" data-id="${c.id}" style="${bs}">Advance ▶</button>`;
   const meta=[];
-  if(c.score!=null&&c.stage!=="screening") meta.push("AI fit "+c.score);
-  if(c.source&&c.stage==="screening") meta.push(c.source.split(" · ")[0]);
+  if(c.score!=null&&t!=="emailHirer") meta.push("AI fit "+c.score);
+  if(c.source&&t==="emailHirer") meta.push(c.source.split(" · ")[0]);
   if(c.spUrl) meta.push(`<a href="${escHtml(c.spUrl)}" target="_blank" rel="noopener" style="color:var(--steel);text-decoration:none">📁 SharePoint</a>`);
   else if(c.spStatus==="uploading") meta.push("📁 uploading…");
   else if(c.spStatus==="failed") meta.push(`<span style="color:var(--crit)" title="${escHtml(c.spErr||"upload failed")}">📁 upload failed</span>`);
   else if(c.cv) meta.push("📎 CV");
-  if(c.hirer&&c.stage!=="screening") meta.push(c.hirer);
-  if(c.invited&&c.stage==="interview") meta.push("invited");
-  if(c.offerSent&&c.stage==="offer") meta.push("offer sent");
+  if(c.hirer&&t!=="emailHirer") meta.push(c.hirer);
+  if(c.invited&&t==="invite") meta.push("invited");
+  if(c.offerSent&&t==="record") meta.push("offer sent");
   let fitBlock="", skillLine="";
-  if(c.stage==="screening"){
+  if(t==="emailHirer"){
     const fs=fitScore(c), col=fs>=85?'var(--ok)':fs>=70?'var(--warn)':'var(--slate-3)';
     fitBlock=`<div style="margin:7px 0 8px">
       <div style="display:flex;justify-content:space-between;font-size:10.5px;font-family:var(--mono);color:var(--slate-2);margin-bottom:3px"><span>${rank?'#'+rank+' · ':''}AI fit score</span><span style="color:${col};font-weight:700">${fs}</span></div>
@@ -1025,21 +1053,46 @@ function candCard(c,rank){
     <div style="font-size:10.5px;color:var(--slate-3);font-family:var(--mono);margin:5px 0 ${fitBlock?'0':'9px'}">${c.id}${meta.length?" · "+meta.join(" · "):""}</div>
     ${fitBlock}${skillLine}${action}</div>`;
 }
-function candAction(act,id){
+function nodeAction(act,id){
   const c=CANDIDATES.find(x=>x.id===id); if(!c) return;
-  if(act==="screen"){
+  if(act==="sendHirer"){
     const sel=document.getElementById("hsel-"+id); const h=HIRERS[sel?+sel.value:0];
     if(!h) return;
-    c.score=fitScore(c); c.hirer=h.name; c.hirerEmail=h.email; c.stage="hirer";
-    showEmail(`${h.name} <${h.email}>`, "Shortlisted CV for review — "+c.role, ["Dear "+h.name+",",`Our AI screen rated ${c.name} a ${c.score}/100 fit for the ${c.role} role (${c.exp}).`,"Please review the attached CV and register your interest via the secure link below (no login required).","[ Secure one-time link ]","Regards, HR Department"]); }
-  else if(act==="interested"){ c.stage="interview"; }
-  else if(act==="pass"){ rejectWithReason(c,"Hirer passed on this candidate","Hirer passed"); return; }
-  else if(act==="declined"){ rejectWithReason(c,"Candidate declined the offer","Offer declined"); return; }
-  else if(act==="invite"){ c.invited=true; showEmail(c.name+" <candidate@email>", "Interview Invitation — "+c.role, ["Dear "+c.name+",",`Thank you for your application for the ${c.role} position. We are pleased to invite you to an interview.`,"Proposed: 3 July 2026, 10:00am at our head office. Kindly reply to confirm your availability.","Regards, HR Department"]); }
-  else if(act==="tooffer"){ c.stage="offer"; }
-  else if(act==="offer"){ if(fcfBlock(c.role)) return; /* FCF gate — no offers inside the advertising window */ c.offerSent=true; showEmail(c.name+" <candidate@email>", "Offer of Employment — "+c.role, ["Dear "+c.name+",",`We are pleased to offer you the position of ${c.role}. Your formal Employment Letter is attached for your review.`,"Please sign and return the Employment Letter to confirm your acceptance.","Regards, HR Department"]); }
-  else if(act==="sign"){ c.stage="hired"; c.letterRecorded=TODAY; docHistory.push({id:++docSeq,tpl:"employment",tplLabel:"Employment Letter",empId:c.id,empName:c.name,when:TODAY,status:"Signed",source:"Recruitment"}); }
-  renderRecruitment();
+    c.score=fitScore(c); c.hirer=h.name; c.hirerEmail=h.email;
+    showEmail(`${h.name} <${h.email}>`, "Shortlisted CV for review — "+c.role, ["Dear "+h.name+",",`Our AI screen rated ${c.name} a ${c.score}/100 fit for the ${c.role} role (${c.exp}).`,"Please review the attached CV and register your interest via the secure link below (no login required).","[ Secure one-time link ]","Regards, HR Department"]);
+    candMoveNext(c); return;
+  }
+  if(act==="interested"){ candMoveNext(c,"yes"); return; }
+  if(act==="pass"){
+    const nx=pubNext(c.nodeId,"no");
+    if(nx&&(pubNodeById(nx)||{}).type!=="reject"){ candMoveNext(c,"no"); }
+    else rejectWithReason(c,"Hirer passed on this candidate","Hirer passed");
+    return;
+  }
+  if(act==="approve"){ candMoveNext(c); return; }
+  if(act==="rejectGate"){ rejectWithReason(c,"Rejected at approval gate","Not approved at review"); return; }
+  if(act==="declined"){ rejectWithReason(c,"Candidate declined the offer","Offer declined"); return; }
+  if(act==="invite"){
+    c.invited=true;
+    showEmail(c.name+" <candidate@email>", "Interview Invitation — "+c.role, ["Dear "+c.name+",",`Thank you for your application for the ${c.role} position. We are pleased to invite you to an interview.`,"Proposed: 3 July 2026, 10:00am at our head office. Kindly reply to confirm your availability.","Regards, HR Department"]);
+    candMoveNext(c); return;
+  }
+  if(act==="offer"){
+    if(fcfBlock(c.role)) return; /* FCF gate — no offers inside the advertising window */
+    c.offerSent=true;
+    showEmail(c.name+" <candidate@email>", "Offer of Employment — "+c.role, ["Dear "+c.name+",",`We are pleased to offer you the position of ${c.role}. Your formal Employment Letter is attached for your review.`,"Please sign and return the Employment Letter to confirm your acceptance.","Regards, HR Department"]);
+    candMoveNext(c); return;
+  }
+  if(act==="sign"){
+    c.done=true; c.letterRecorded=TODAY;
+    docHistory.push({id:++docSeq,tpl:"employment",tplLabel:"Employment Letter",empId:c.id,empName:c.name,when:TODAY,status:"Signed",source:"Recruitment"});
+    saveAppState(); renderRecruitment(); return;
+  }
+  if(act==="fcfRelease"){
+    const f=FCF.find(x=>x.role===c.role); if(f){ f.ok=true; f.days=Math.max(f.days,14); }
+    engineAdvance(c); saveAppState(); renderRecruitment(); return;
+  }
+  if(act==="advance"){ if(!c.nodeId||!pubNodeById(c.nodeId)){ engineEnter(c); saveAppState(); renderRecruitment(); } else candMoveNext(c); return; }
 }
 function rejectWithReason(c,title,defaultReason){
   const m=openModal(`
@@ -1052,7 +1105,8 @@ function rejectWithReason(c,title,defaultReason){
   m.ov.querySelector("#rjConfirm").onclick=()=>{
     const v=m.ov.querySelector("#rjReason").value.trim();
     if(!v){ const e=m.ov.querySelector("#rjErr"); e.textContent="A reason is required — decision records must be retained."; e.style.display="block"; return; }
-    c.prevStage=c.stage; c.stage="rejected"; c.rejReason=v; c.rejWhen=TODAY; m.close(); renderRecruitment();
+    const n0=c.nodeId&&pubNodeById(c.nodeId); c.prevStageLabel=n0?wfNodeLabel(n0):(c.prevStageLabel||"—");
+    c.prevStage=c.stage; c.stage="rejected"; c.rejReason=v; c.rejWhen=TODAY; saveAppState(); m.close(); renderRecruitment();
   };
 }
 function showEmail(to,subject,lines){
@@ -1311,6 +1365,7 @@ function addCandidateModal(){
     aiParseFlow(m,body,foot,f,(d)=>{
       const rec={id:nextCandId(),name:d.name,role:d.role,exp:d.exp,stage:"screening",source,cv:f.name,email:d.email,phone:d.phone,skills:d.skills,education:d.education,certs:d.certs,summary:d.summary,cvText:d.cvText,parsed:d.real,aiRead:d.ai};
       CANDIDATES.push(rec);
+      engineEnter(rec); saveAppState();
       m.close();
       if(spConfigured()&&typeof msal!=="undefined"){
         rec.spStatus="uploading";
@@ -1343,7 +1398,8 @@ function intakePreview(){
     if(!f){ err.textContent="Please upload your CV."; err.style.display="block"; return; }
     if(!m.ov.querySelector("#ikConsent").checked){ err.textContent="Consent is required to submit."; err.style.display="block"; return; }
     aiParseFlow(m,body,foot,f,(d)=>{
-      CANDIDATES.push({id:nextCandId(),name:d.name,role:d.role||"Site Engineer",exp:d.exp,stage:"screening",source:"Direct application",cv:f.name,email:d.email,phone:d.phone,skills:d.skills,education:d.education,certs:d.certs,summary:d.summary,cvText:d.cvText,parsed:d.real,aiRead:d.ai});
+      const rec2={id:nextCandId(),name:d.name,role:d.role||"Site Engineer",exp:d.exp,stage:"screening",source:"Direct application",cv:f.name,email:d.email,phone:d.phone,skills:d.skills,education:d.education,certs:d.certs,summary:d.summary,cvText:d.cvText,parsed:d.real,aiRead:d.ai};
+      CANDIDATES.push(rec2); engineEnter(rec2); saveAppState();
       body.innerHTML=`<div style="text-align:center;padding:34px 12px"><div style="font-size:42px;color:var(--ok)">✓</div><div style="font-size:17px;font-weight:600;margin-top:8px">Application received</div><div style="font-size:13px;color:var(--slate-2);margin:6px auto 0;max-width:38ch">Thank you, ${d.name}. We read your CV and added your application to the screening queue.</div></div>`;
       foot.innerHTML=`<button class="btn" id="ikDone">Done</button>`;
       foot.querySelector("#ikDone").onclick=m.close;
@@ -1404,7 +1460,8 @@ function designerHTML(){
     <button class="btn ghost" id="wfClearRun">Clear run</button>
     <button class="btn ghost" id="wfDelSel">🗑 Delete selected</button>
     <button class="btn ghost" id="wfReset">Reset to default template</button>
-    <span class="note" style="margin:0">Saved automatically in this browser.</span>
+    <button class="btn ok" id="wfPublish" title="Make this workflow the live pipeline — candidates migrate to the new version">🚀 Publish to pipeline</button>
+    <span class="note" style="margin:0" id="wfPubNote">live: v${WFPUB.version} · draft saves automatically</span>
   </div>
   <div class="wf-wrap">
     <div class="wf-palette card" id="wfPal">${pal}<p class="note" style="margin-top:10px">Drag onto the canvas, or click to add.</p></div>
@@ -1514,6 +1571,7 @@ function wfLintRun(){
   box.innerHTML=msgs.length?msgs.map(m=>`<div class="lint-item ${m[0]}">${m[0]==="err"?"⛔":"⚠"} <span>${m[1]}</span></div>`).join("")
     :`<div class="lint-item okk">✓ All checks passed — guardrails satisfied. Ready to run.</div>`;
   const btn=document.getElementById("wfRun"); if(btn) btn.disabled=errors>0||wfRunning;
+  const pb=document.getElementById("wfPublish"); if(pb) pb.disabled=errors>0;
 }
 function wfLog(msg,cls){
   const log=document.getElementById("wfLog"); if(!log) return null;
@@ -1610,6 +1668,12 @@ function initDesigner(){
     wfSel=null; wfRefreshSel();
   });
   document.getElementById("wfRun").onclick=wfRunSim;
+  document.getElementById("wfPublish").onclick=()=>{
+    publishWorkflow();
+    const note=document.getElementById("wfPubNote");
+    if(note) note.textContent="live: v"+WFPUB.version+" ✓ just published";
+    wfLog(`🚀 <b>Published v${WFPUB.version}</b> — the pipeline now runs this workflow (${wfPubCols().length} stages). Candidates were migrated to matching stages.`);
+  };
   document.getElementById("wfClearRun").onclick=wfClearRun;
   document.getElementById("wfDelSel").onclick=wfDeleteSelected;
   document.getElementById("wfReset").onclick=()=>{ WF=wfDefault(); wfSel=null; saveWF(); wfMountAll(); wfLintRun(); wfClearRun(); };
@@ -1657,6 +1721,109 @@ function initDesigner(){
     });
   }
 }
+
+/* ---------- WORKFLOW ENGINE (published workflow drives the live pipeline) ----------
+   The Designer edits a DRAFT. Publishing snapshots it as the ACTIVE version;
+   pipeline columns, cards and actions are generated from that graph, and each
+   candidate is an instance sitting at a node. Transit nodes (intake/parse/
+   score/condition/draft) auto-advance; wait nodes (human gates, actions,
+   FCF holds) rest until acted on. */
+const WF_TRANSIT=new Set(["intake","parse","screen","draft","cond"]);
+const WF_PUB_LS="hrportal_wf_published", APP_LS="hrportal_app_v1";
+function wfNodeLabel(n){ return (WF_TYPES[n.type]?WF_TYPES[n.type].label:n.type).replace(" 🔒",""); }
+let WFPUB=(function(){ try{ const s=localStorage.getItem(WF_PUB_LS); if(s){ const o=JSON.parse(s); if(o&&o.nodes) return o; } }catch(e){}
+  return Object.assign({version:1},wfDefault()); })();
+function wfPubSave(){ try{ localStorage.setItem(WF_PUB_LS,JSON.stringify(WFPUB)); }catch(e){} }
+function pubNodeById(id){ return WFPUB.nodes.find(n=>n.id===id); }
+function wfPubCols(){
+  const cols=WFPUB.nodes.filter(n=>!WF_TRANSIT.has(n.type)&&n.type!=="reject").sort((a,b)=>a.x-b.x||a.y-b.y);
+  const seen={};
+  return cols.map(n=>{ const base=wfNodeLabel(n); seen[base]=(seen[base]||0)+1; return {node:n,label:seen[base]>1?base+" ("+seen[base]+")":base}; });
+}
+function pubNext(nodeId,port){
+  let e=WFPUB.edges.find(x=>x.from.n===nodeId&&x.from.port===(port||"out"));
+  if(!e&&(!port||port==="out")) e=WFPUB.edges.find(x=>x.from.n===nodeId);
+  return e?e.to:null;
+}
+function engineAdvance(c){
+  let guard=0;
+  while(guard++<40){
+    const n=pubNodeById(c.nodeId);
+    if(!n){ c.deadEnd=true; return; }
+    if(n.type==="reject"){ c.stage="rejected"; c.rejWhen=c.rejWhen||TODAY; c.rejReason=c.rejReason||"Routed to Reject by the workflow"; c.prevStageLabel=c.prevStageLabel||"Workflow"; return; }
+    if(WF_TRANSIT.has(n.type)){
+      let port="out";
+      if(n.type==="cond") port=fitScore(c)>=75?"yes":"no";
+      const nx=pubNext(n.id,port);
+      if(!nx){ c.deadEnd=true; return; }
+      c.nodeId=nx; c.deadEnd=false; continue;
+    }
+    if(n.type==="fcf"&&!fcfBlock(c.role)){
+      const nx=pubNext(n.id); if(!nx){ c.deadEnd=true; return; }
+      c.nodeId=nx; continue;
+    }
+    return; /* resting at a wait/action node */
+  }
+}
+function candMoveNext(c,port){
+  const nx=pubNext(c.nodeId,port);
+  if(!nx){ c.deadEnd=true; } else { c.nodeId=nx; c.deadEnd=false; engineAdvance(c); }
+  saveAppState(); renderRecruitment();
+}
+function engineEnter(c){
+  const intake=WFPUB.nodes.find(n=>n.type==="intake");
+  const cols=wfPubCols();
+  c.nodeId=intake?intake.id:(cols[0]&&cols[0].node.id);
+  if(c.nodeId) engineAdvance(c);
+}
+function firstNodeOfType(t){ const n=WFPUB.nodes.filter(x=>x.type===t).sort((a,b)=>a.x-b.x)[0]; return n&&n.id; }
+function migrateCandidates(oldTypes){
+  const cols=wfPubCols();
+  CANDIDATES.forEach(c=>{
+    if(c.stage==="rejected") return;
+    const cur=c.nodeId&&pubNodeById(c.nodeId);
+    if(cur&&!WF_TRANSIT.has(cur.type)) return; /* already valid in this version */
+    let target=null;
+    if(c.nodeId&&oldTypes&&oldTypes[c.nodeId]) target=firstNodeOfType(oldTypes[c.nodeId]); /* same role in new version */
+    if(!target){ /* legacy stage-based seeds */
+      if(c.stage==="screening") target=firstNodeOfType("emailHirer");
+      else if(c.stage==="hirer") target=firstNodeOfType("hirer");
+      else if(c.stage==="interview") target=c.invited?(firstNodeOfType("fcf")||firstNodeOfType("doa")||firstNodeOfType("offer")):firstNodeOfType("invite");
+      else if(c.stage==="offer") target=c.offerSent?firstNodeOfType("record"):firstNodeOfType("offer");
+      else if(c.stage==="hired"){ target=firstNodeOfType("record"); c.done=true; }
+    }
+    c.nodeId=target||(cols[0]&&cols[0].node.id);
+    if(c.nodeId&&!c.done) engineAdvance(c);
+  });
+}
+function publishWorkflow(){
+  const oldTypes={}; WFPUB.nodes.forEach(n=>oldTypes[n.id]=n.type);
+  WFPUB={ version:(WFPUB.version||0)+1, nodes:JSON.parse(JSON.stringify(WF.nodes)), edges:JSON.parse(JSON.stringify(WF.edges)) };
+  wfPubSave();
+  migrateCandidates(oldTypes);
+  saveAppState();
+}
+function saveAppState(){
+  try{
+    localStorage.setItem(APP_LS,JSON.stringify({
+      candidates:CANDIDATES, hirers:HIRERS, docHistory, docSeq,
+      fcfOk:FCF.filter(f=>f.ok).map(f=>f.role)
+    }));
+  }catch(e){}
+}
+(function loadAppState(){
+  try{
+    const s=localStorage.getItem(APP_LS);
+    if(s){
+      const o=JSON.parse(s);
+      if(Array.isArray(o.candidates)&&o.candidates.length) CANDIDATES=o.candidates;
+      if(Array.isArray(o.hirers)) HIRERS=o.hirers;
+      if(Array.isArray(o.docHistory)){ docHistory=o.docHistory; docSeq=o.docSeq||docHistory.length; }
+      if(Array.isArray(o.fcfOk)) FCF.forEach(f=>{ if(o.fcfOk.includes(f.role)){ f.ok=true; f.days=Math.max(f.days,14); } });
+    }
+  }catch(e){}
+  try{ migrateCandidates(null); }catch(e){} /* place everyone in the published workflow on boot */
+})();
 
 /* ---------- AI CV UNDERSTANDING (provider-agnostic LLM layer) ----------
    Interim browser-direct wiring: the API key is entered by the HR user in
