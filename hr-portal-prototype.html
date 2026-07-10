@@ -283,6 +283,15 @@
   .lint-item.err{background:var(--crit-bg);color:var(--crit);}
   .lint-item.warn{background:var(--warn-bg);color:var(--warn);}
   .lint-item.okk{background:var(--ok-bg);color:var(--ok);}
+  /* ---- recruitment statistics ---- */
+  .hchart{display:flex;flex-direction:column;gap:9px;}
+  .hrow{display:grid;grid-template-columns:132px 1fr 36px;gap:10px;align-items:center;}
+  .hlab{font-size:12.5px;color:var(--slate);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .htrk{position:relative;height:16px;border-left:2px solid var(--line);}
+  .hbar{height:100%;background:var(--steel);border-radius:0 4px 4px 0;transition:filter .12s;}
+  .hrow:hover .hbar{filter:brightness(1.15);}
+  .hval{font-size:12.5px;font-weight:600;color:var(--ink-2);font-variant-numeric:tabular-nums;}
+  @media(max-width:640px){.hrow{grid-template-columns:96px 1fr 30px;}.hlab{font-size:11px;}}
   @media(max-width:900px){.wf-wrap{grid-template-columns:1fr;}.wf-palette{position:static;max-height:170px;}.wf-canvas-outer{height:430px;}}
   @media(prefers-reduced-motion:reduce){*{transition:none!important;}}
 </style>
@@ -855,8 +864,9 @@ const STAGES=[["screening","CV Screening"],["hirer","With Hirer"],["interview","
 function fcfBlock(roleName){ const f=FCF.find(x=>x.role===roleName); return (f&&!f.ok)?f:null; }
 function renderRecruitment(){
   let h=`<div class="page-head"><h1>👥 Recruitment</h1><p>From CV screening to signed Employment Letter. Build your own agentic workflow in the designer — guardrails stay enforced.</p></div>`;
-  h+=`<div class="tabs" style="margin-bottom:14px"><button class="tab ${recruitTab==='candidates'?'active':''}" data-rt="candidates">Candidates &amp; Pipeline</button><button class="tab ${recruitTab==='designer'?'active':''}" data-rt="designer">⚙ Workflow Designer</button></div>`;
+  h+=`<div class="tabs" style="margin-bottom:14px"><button class="tab ${recruitTab==='candidates'?'active':''}" data-rt="candidates">Candidates &amp; Pipeline</button><button class="tab ${recruitTab==='designer'?'active':''}" data-rt="designer">⚙ Workflow Designer</button><button class="tab ${recruitTab==='stats'?'active':''}" data-rt="stats">📊 Statistics</button></div>`;
   if(recruitTab==="designer"){ h+=designerHTML(); main.innerHTML=h; wireRecruitTabs(); initDesigner(); return; }
+  if(recruitTab==="stats"){ h+=recruitStatsHTML(); main.innerHTML=h; wireRecruitTabs(); return; }
   h+=`<div class="card" style="background:var(--info-bg);border-color:#d7defb;margin-bottom:16px;padding:12px 16px;font-size:13px"><b>How hirers fit in (HR-only constraint):</b> shortlisted CVs are emailed to the selected hiring manager with a secure, one-time link to register interest — they never receive a portal login. Their response is recorded back here.</div>`;
   const eml=`style="font-size:11px;font-family:var(--mono);color:var(--slate-2);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px"`;
   const inp=`style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:7px;font-family:inherit;font-size:13px"`;
@@ -918,6 +928,62 @@ function renderRecruitment(){
   wireRecruitTabs();
 }
 function wireRecruitTabs(){ main.querySelectorAll("[data-rt]").forEach(b=>b.onclick=()=>{ recruitTab=b.dataset.rt; renderRecruitment(); }); }
+function hBars(rows){
+  const max=Math.max(1,...rows.map(r=>r[1]));
+  return `<div class="hchart">`+rows.map(r=>`<div class="hrow" title="${escHtml(r[0])}: ${r[1]}">
+    <div class="hlab">${escHtml(r[0])}</div>
+    <div class="htrk">${r[1]?`<div class="hbar" style="width:${Math.max(2,r[1]/max*100)}%"></div>`:""}</div>
+    <div class="hval">${r[1]}</div></div>`).join("")+`</div>`;
+}
+function recruitStatsHTML(){
+  const stageDefs=[["screening","CV Screening"],["hirer","With Hirer"],["interview","Interview"],["offer","Offer"],["hired","Hired"],["rejected","Rejected / declined"]];
+  const byStage=stageDefs.map(s=>[s[1],CANDIDATES.filter(c=>c.stage===s[0]).length]);
+  const roles={}; CANDIDATES.forEach(c=>{ roles[c.role||"—"]=(roles[c.role||"—"]||0)+1; });
+  const byRole=Object.entries(roles).sort((a,b)=>b[1]-a[1]);
+  const srcs={}; CANDIDATES.forEach(c=>{ const s=(c.source||"Seeded demo data").split(" · ")[0]; srcs[s]=(srcs[s]||0)+1; });
+  const bySrc=Object.entries(srcs).sort((a,b)=>b[1]-a[1]);
+  const n=CANDIDATES.length;
+  const active=CANDIDATES.filter(c=>c.stage!=="rejected"&&c.stage!=="hired").length;
+  const hired=CANDIDATES.filter(c=>c.stage==="hired").length;
+  const rejected=CANDIDATES.filter(c=>c.stage==="rejected").length;
+  const interviews=CANDIDATES.filter(c=>c.stage==="interview").length;
+  const offers=CANDIDATES.filter(c=>c.stage==="offer").length;
+  const avgFit=n?Math.round(CANDIDATES.reduce((a,c)=>a+fitScore(c),0)/n):0;
+  const onSp=CANDIDATES.filter(c=>c.spUrl).length;
+  const convPct=(hired+rejected)?Math.round(hired/(hired+rejected)*100):null;
+
+  const statusRows=CANDIDATES.filter(c=>["interview","offer","hired"].includes(c.stage)).map(c=>{
+    let st;
+    if(c.stage==="interview") st=c.invited?`<span class="pill info">Invited — scheduling</span>`:`<span class="pill warn">Awaiting invite</span>`;
+    else if(c.stage==="offer") st=c.offerSent?`<span class="pill warn">Offer sent — awaiting signature</span>`:(fcfBlock(c.role)?`<span class="pill crit">Offer blocked — FCF window</span>`:`<span class="pill info">Ready to send offer</span>`);
+    else st=`<span class="pill ok">Hired · letter ${escHtml(c.letterRecorded||TODAY)}</span>`;
+    const cvs=c.spUrl?`<a href="${escHtml(c.spUrl)}" target="_blank" rel="noopener" style="color:var(--steel)">📁 filed</a>`:(c.spStatus==="failed"?`<span style="color:var(--crit)">failed</span>`:"—");
+    return [`${escHtml(c.name)} <span class="mono" style="color:var(--slate-3)">${c.id}</span>`,escHtml(c.role||"—"),`<span class="num">${fitScore(c)}</span>`,escHtml(c.hirer||"—"),st,cvs];
+  });
+
+  return `
+  <div class="grid g-kpi" style="margin-bottom:16px">
+    <div class="card tile info"><div class="lab">Total CVs</div><div class="val">${n}</div><div class="sub">all candidates recorded</div></div>
+    <div class="card tile info"><div class="lab">Active pipeline</div><div class="val">${active}</div><div class="sub">screening → offer</div></div>
+    <div class="card tile warn"><div class="lab">Interviews</div><div class="val">${interviews}</div><div class="sub">in progress</div></div>
+    <div class="card tile warn"><div class="lab">Offers open</div><div class="val">${offers}</div><div class="sub">awaiting outcome</div></div>
+    <div class="card tile ok"><div class="lab">Hired</div><div class="val">${hired}</div><div class="sub">${convPct!=null?convPct+"% of decided":"letters recorded"}</div></div>
+    <div class="card tile info"><div class="lab">Avg AI fit</div><div class="val">${avgFit}</div><div class="sub">across all CVs</div></div>
+  </div>
+  <div class="grid g-2">
+    <div class="card"><h3>Pipeline by stage <span class="count">${n} CVs</span></h3>${hBars(byStage)}</div>
+    <div class="card"><h3>CVs by role <span class="count">${byRole.length} roles</span></h3>${hBars(byRole)}</div>
+    <div class="card"><h3>CV sources <span class="count">where they came from</span></h3>${hBars(bySrc)}
+      <p class="note" style="margin-top:12px">Agency-sourced counts feed the job scope's "are agencies replacing lost hires?" tracking.</p></div>
+    <div class="card"><h3>📁 SharePoint filing <span class="count">document custody</span></h3>
+      ${hBars([["Filed to SharePoint",onSp],["Not filed / local only",n-onSp]])}
+      <p class="note" style="margin-top:12px">${spConfigured()?"Filed as: YYYYMMDD_Role_Name_Experience":"Connect SharePoint in Candidates & Pipeline to start filing CVs automatically."}</p></div>
+  </div>
+  <div class="card" style="margin-top:16px"><h3>Interview &amp; offer status <span class="count">${statusRows.length} candidates at decision stages</span></h3>
+    ${statusRows.length?tbl(["Candidate","Role","AI fit","Hirer","Status","CV"],statusRows):`<p class="note">No candidates at interview or offer stage yet.</p>`}
+  </div>
+  <p class="note">Live view of this session's pipeline (demo data until real candidates flow in). In production these statistics come from the database and include time-to-hire and recruitment-cost trends per the job scopes.</p>`;
+}
 function candCard(c,rank){
   let action="";
   if(c.stage==="screening"){
@@ -1225,7 +1291,7 @@ function addCandidateModal(){
       m.close();
       if(spConfigured()&&typeof msal!=="undefined"){
         rec.spStatus="uploading";
-        spUpload(f)
+        spUpload(f,rec)
           .then(j=>{ rec.spStatus="done"; rec.spUrl=j.webUrl; })
           .catch(err=>{ rec.spStatus="failed"; rec.spErr=String(err.message||err); })
           .finally(()=>{ if(view==="recruitment"&&recruitTab==="candidates") renderRecruitment(); });
@@ -1617,11 +1683,21 @@ async function spResolveFolder(interactive){
   spDrive={ driveId:j.parentReference.driveId, itemId:j.id, webUrl:j.webUrl, name:j.name };
   return spDrive;
 }
-async function spUpload(file){
+function spCvFilename(file,rec){
+  /* Naming convention: YYYYMMDD_Role_Name_Experience.ext */
+  const clean=s=>String(s||"").replace(/[#%*:<>?/\\|{}"~&]/g,"").replace(/\s+/g," ").trim();
+  const d=new Date();
+  const ymd=d.getFullYear()+String(d.getMonth()+1).padStart(2,"0")+String(d.getDate()).padStart(2,"0");
+  const expM=String(rec&&rec.exp||"").match(/\d+/);
+  const exp=expM?expM[0]+"yrs":"XPna";
+  const ext=(file.name.match(/\.[A-Za-z0-9]{1,6}$/)||[".pdf"])[0];
+  return [ymd,clean(rec&&rec.role)||"Role",clean(rec&&rec.name)||"Candidate",exp].join("_").slice(0,180)+ext;
+}
+async function spUpload(file,rec){
   if(file.size>4*1024*1024) throw new Error("File exceeds the 4 MB interim upload limit.");
   const t=await spToken(false);
   const d=await spResolveFolder(false);
-  const safe=(new Date().toISOString().slice(0,10))+"_"+file.name.replace(/[#%*:<>?/\\|{}]/g,"_");
+  const safe=spCvFilename(file,rec);
   const url="https://graph.microsoft.com/v1.0/drives/"+d.driveId+"/items/"+d.itemId+":/"+encodeURIComponent(safe)+":/content?@microsoft.graph.conflictBehavior=rename";
   const r=await fetch(url,{ method:"PUT", headers:{ Authorization:"Bearer "+t, "Content-Type":file.type||"application/octet-stream" }, body:file });
   if(!r.ok) throw new Error("Upload failed (HTTP "+r.status+")");
