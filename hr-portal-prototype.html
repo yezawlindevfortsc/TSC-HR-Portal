@@ -973,7 +973,7 @@ function recruitStatsHTML(){
     else if(t==="doa") st=`<span class="pill warn">Awaiting DOA approval</span>`;
     else if(t==="invite") st=`<span class="pill info">Interview — invite to send</span>`;
     else if(t==="offer") st=fcfBlock(c.role)?`<span class="pill crit">Offer blocked — FCF window</span>`:`<span class="pill info">Ready to send offer</span>`;
-    else st=`<span class="pill warn">Offer sent — awaiting signature</span>`;
+    else st=`<span class="pill warn">Offer sent${c.offer?" · "+fmtSGD(c.offer.salary)+"/mo, start "+fmtDateInput(c.offer.start):""} — awaiting signature</span>`;
     const cvs=c.spUrl?`<a href="${escHtml(c.spUrl)}" target="_blank" rel="noopener" style="color:var(--steel)">📁 filed</a>`:(c.spStatus==="failed"?`<span style="color:var(--crit)">failed</span>`:"—");
     return [`${escHtml(c.name)} <span class="mono" style="color:var(--slate-3)">${c.id}</span>`,escHtml(c.role||"—"),`<span class="num">${fitScore(c)}</span>`,escHtml(c.hirer||"—"),st,cvs];
   });
@@ -1037,8 +1037,8 @@ function candCard(c,rank){
   else if(c.spStatus==="failed") meta.push(`<span style="color:var(--crit)" title="${escHtml(c.spErr||"upload failed")}">📁 upload failed</span>`);
   else if(c.cv) meta.push("📎 CV");
   if(c.hirer&&t!=="emailHirer") meta.push(c.hirer);
-  if(c.invited&&t==="invite") meta.push("invited");
-  if(c.offerSent&&t==="record") meta.push("offer sent");
+  if(c.interview&&!c.done) meta.push(`<span title="Interview scheduled — ${escHtml(c.interview.mode||"")}">🗓 ${escHtml(fmtDateInput(c.interview.date))} ${escHtml(c.interview.time||"")}</span>`);
+  if(c.offerSent&&t==="record") meta.push(c.offer?`offer: ${fmtSGD(c.offer.salary)}/mo`:"offer sent");
   let fitBlock="", skillLine="";
   if(t==="emailHirer"){
     const fs=fitScore(c), col=fs>=85?'var(--ok)':fs>=70?'var(--warn)':'var(--slate-3)';
@@ -1048,10 +1048,20 @@ function candCard(c,rank){
     if(c.skills) skillLine=`<div style="font-size:10.5px;color:var(--slate-3);line-height:1.4;margin-bottom:8px">${c.skills}</div>`;
   }
   return `<div class="card" style="padding:11px 12px;margin-bottom:8px" ${c.summary?`title="${escHtml(c.summary)}"`:""}>
-    <div style="font-weight:600;font-size:13.5px">${c.name}${c.aiRead?' <span title="Read by AI" style="font-size:10px">🧠</span>':''}</div>
+    <div style="font-weight:600;font-size:13.5px;cursor:pointer" data-act="detail" data-id="${c.id}" title="View profile & activity log">${c.name}${c.aiRead?' <span title="Read by AI" style="font-size:10px">🧠</span>':''} <span style="font-size:10px;color:var(--slate-3)">ⓘ</span></div>
     <div style="font-size:11.5px;color:var(--slate-2)">${c.role} · ${c.exp}</div>
     <div style="font-size:10.5px;color:var(--slate-3);font-family:var(--mono);margin:5px 0 ${fitBlock?'0':'9px'}">${c.id}${meta.length?" · "+meta.join(" · "):""}</div>
     ${fitBlock}${skillLine}${action}</div>`;
+}
+/* Per-candidate audit trail — every consequential action is logged with a real
+   timestamp and persists with the candidate (PDPA/MOM decision defensibility). */
+function candStamp(){ const d=new Date(); return d.toLocaleDateString("en-SG",{day:"2-digit",month:"short",year:"numeric"})+", "+d.toLocaleTimeString("en-SG",{hour:"2-digit",minute:"2-digit",hour12:false}); }
+function candLog(c,msg){ (c.history=c.history||[]).push({t:candStamp(),m:msg}); }
+function fmtDateInput(dstr){ // "2026-07-14" → "14 Jul 2026"
+  if(!dstr) return "—";
+  const p=dstr.split("-"); if(p.length!==3) return dstr;
+  const d=new Date(+p[0],+p[1]-1,+p[2]);
+  return isNaN(d)?dstr:d.toLocaleDateString("en-SG",{day:"2-digit",month:"short",year:"numeric"});
 }
 function nodeAction(act,id){
   const c=CANDIDATES.find(x=>x.id===id); if(!c) return;
@@ -1059,40 +1069,38 @@ function nodeAction(act,id){
     const sel=document.getElementById("hsel-"+id); const h=HIRERS[sel?+sel.value:0];
     if(!h) return;
     c.score=fitScore(c); c.hirer=h.name; c.hirerEmail=h.email;
+    candLog(c,`Shortlist emailed to ${h.name} (AI fit ${c.score}/100, secure one-time link)`);
     showEmail(`${h.name} <${h.email}>`, "Shortlisted CV for review — "+c.role, ["Dear "+h.name+",",`Our AI screen rated ${c.name} a ${c.score}/100 fit for the ${c.role} role (${c.exp}).`,"Please review the attached CV and register your interest via the secure link below (no login required).","[ Secure one-time link ]","Regards, HR Department"]);
     candMoveNext(c); return;
   }
-  if(act==="interested"){ candMoveNext(c,"yes"); return; }
+  if(act==="interested"){ candLog(c,`Hirer ${c.hirer||""} registered interest`.trim()); candMoveNext(c,"yes"); return; }
   if(act==="pass"){
     const nx=pubNext(c.nodeId,"no");
     if(nx&&(pubNodeById(nx)||{}).type!=="reject"){ candMoveNext(c,"no"); }
     else rejectWithReason(c,"Hirer passed on this candidate","Hirer passed");
     return;
   }
-  if(act==="approve"){ candMoveNext(c); return; }
+  if(act==="approve"){ const n=pubNodeById(c.nodeId); candLog(c,`Approved at ${n?wfNodeLabel(n):"gate"} — by ${(ROLES[role]||{}).name||"HR"}`); candMoveNext(c); return; }
   if(act==="rejectGate"){ rejectWithReason(c,"Rejected at approval gate","Not approved at review"); return; }
   if(act==="declined"){ rejectWithReason(c,"Candidate declined the offer","Offer declined"); return; }
-  if(act==="invite"){
-    c.invited=true;
-    showEmail(c.name+" <candidate@email>", "Interview Invitation — "+c.role, ["Dear "+c.name+",",`Thank you for your application for the ${c.role} position. We are pleased to invite you to an interview.`,"Proposed: 3 July 2026, 10:00am at our head office. Kindly reply to confirm your availability.","Regards, HR Department"]);
-    candMoveNext(c); return;
-  }
+  if(act==="invite"){ interviewModal(c); return; }
   if(act==="offer"){
     if(fcfBlock(c.role)) return; /* FCF gate — no offers inside the advertising window */
-    c.offerSent=true;
-    showEmail(c.name+" <candidate@email>", "Offer of Employment — "+c.role, ["Dear "+c.name+",",`We are pleased to offer you the position of ${c.role}. Your formal Employment Letter is attached for your review.`,"Please sign and return the Employment Letter to confirm your acceptance.","Regards, HR Department"]);
-    candMoveNext(c); return;
+    offerModal(c); return;
   }
   if(act==="sign"){
     c.done=true; c.letterRecorded=TODAY;
+    candLog(c,"Signed Employment Letter recorded — HIRED");
     docHistory.push({id:++docSeq,tpl:"employment",tplLabel:"Employment Letter",empId:c.id,empName:c.name,when:TODAY,status:"Signed",source:"Recruitment"});
     saveAppState(); renderRecruitment(); return;
   }
   if(act==="fcfRelease"){
     const f=FCF.find(x=>x.role===c.role); if(f){ f.ok=true; f.days=Math.max(f.days,14); }
+    candLog(c,"FCF advertising window marked served (demo) — hold released");
     engineAdvance(c); saveAppState(); renderRecruitment(); return;
   }
   if(act==="advance"){ if(!c.nodeId||!pubNodeById(c.nodeId)){ engineEnter(c); saveAppState(); renderRecruitment(); } else candMoveNext(c); return; }
+  if(act==="detail"){ candDetailModal(c); return; }
 }
 function rejectWithReason(c,title,defaultReason){
   const m=openModal(`
@@ -1106,8 +1114,125 @@ function rejectWithReason(c,title,defaultReason){
     const v=m.ov.querySelector("#rjReason").value.trim();
     if(!v){ const e=m.ov.querySelector("#rjErr"); e.textContent="A reason is required — decision records must be retained."; e.style.display="block"; return; }
     const n0=c.nodeId&&pubNodeById(c.nodeId); c.prevStageLabel=n0?wfNodeLabel(n0):(c.prevStageLabel||"—");
+    candLog(c,`Rejected at ${c.prevStageLabel} — "${v}" (by ${(ROLES[role]||{}).name||"HR"})`);
     c.prevStage=c.stage; c.stage="rejected"; c.rejReason=v; c.rejWhen=TODAY; saveAppState(); m.close(); renderRecruitment();
   };
+}
+/* ---- Interview scheduling — real details captured, not a canned email ---- */
+function interviewModal(c){
+  const d=new Date(); d.setDate(d.getDate()+7);
+  const defDate=d.toISOString().slice(0,10);
+  const iv=c.interview||{};
+  const m=openModal(`
+    <div style="background:var(--ink);color:#eaf1f8;padding:13px 18px;display:flex;align-items:center;gap:8px"><span>🗓</span><b>Schedule interview — ${escHtml(c.name)}</b><span style="margin-left:auto;font-family:var(--mono);font-size:10px;color:#9fb6cc">${c.id} · ${escHtml(c.role)}</span></div>
+    <div style="padding:18px 20px;overflow:auto">
+      <div style="display:flex;gap:10px"><div class="field" style="flex:1"><label>Date *</label><input id="ivDate" type="date" value="${iv.date||defDate}"></div>
+      <div class="field" style="flex:1"><label>Time *</label><input id="ivTime" type="time" value="${iv.time||"10:00"}"></div></div>
+      <div class="field"><label>Format</label><select id="ivMode"><option ${iv.mode==="In person"?"selected":""}>In person</option><option ${iv.mode==="Video call (Teams)"?"selected":""}>Video call (Teams)</option></select></div>
+      <div class="field"><label>Venue / link</label><input id="ivLoc" value="${escHtml(iv.loc||"Head office — Level 3 meeting room")}"></div>
+      <div class="field"><label>Interviewer(s)</label><input id="ivWho" value="${escHtml(iv.interviewer||c.hirer||"")}" placeholder="e.g. hiring manager + HR"></div>
+      <div id="ivErr" class="note" style="color:var(--crit);display:none"></div>
+    </div>
+    <div style="padding:14px 20px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--line-2)"><button class="btn ghost" data-close>Cancel</button><button class="btn" id="ivSend">✉ Send interview invite</button></div>`);
+  m.ov.querySelector("#ivSend").onclick=()=>{
+    const g=s=>m.ov.querySelector(s).value.trim();
+    const date=g("#ivDate"),time=g("#ivTime");
+    if(!date||!time){ const e=m.ov.querySelector("#ivErr"); e.textContent="Date and time are required."; e.style.display="block"; return; }
+    c.interview={date,time,mode:g("#ivMode"),loc:g("#ivLoc"),interviewer:g("#ivWho"),sentOn:TODAY};
+    c.invited=true;
+    candLog(c,`Interview invite sent — ${fmtDateInput(date)} ${time}, ${c.interview.mode}${c.interview.interviewer?", with "+c.interview.interviewer:""}`);
+    m.close();
+    showEmail(c.name+" <"+(c.email||"candidate@email")+">", "Interview Invitation — "+c.role, ["Dear "+c.name+",",`Thank you for your application for the ${c.role} position. We are pleased to invite you to an interview:`,`<b>${fmtDateInput(date)}, ${time}</b> · ${escHtml(c.interview.mode)}<br>${escHtml(c.interview.loc)}${c.interview.interviewer?`<br>You will meet: ${escHtml(c.interview.interviewer)}`:""}`,"Kindly reply to confirm your availability, or propose an alternative slot.","Regards, HR Department"]);
+    candMoveNext(c);
+  };
+}
+/* ---- Offer terms + Employment Letter — deterministic template, no LLM in
+        statutory/financial content (design principle #3) ---- */
+function fmtSGD(n){ return "S$ "+(+n).toLocaleString("en-SG"); }
+function offerLetterHTML(c,o){
+  return `<div style="font-size:12.5px;line-height:1.7;background:#fff;border:1px solid var(--line);border-radius:8px;padding:20px 22px;max-height:300px;overflow:auto">
+    <div style="text-align:center;font-weight:700;letter-spacing:.04em">[ COMPANY LETTERHEAD ]</div>
+    <p style="margin:12px 0 4px">${TODAY}</p>
+    <p style="margin:0 0 10px"><b>Private &amp; Confidential</b><br>${escHtml(c.name)}</p>
+    <p style="margin:0 0 10px"><b>OFFER OF EMPLOYMENT — ${escHtml(c.role).toUpperCase()}</b></p>
+    <p style="margin:0 0 8px">Dear ${escHtml(c.name)},</p>
+    <p style="margin:0 0 8px">We are pleased to offer you employment on the following terms:</p>
+    <ol style="margin:0 0 10px;padding-left:20px">
+      <li><b>Position:</b> ${escHtml(c.role)}, reporting as assigned by the Company.</li>
+      <li><b>Commencement date:</b> ${fmtDateInput(o.start)}.</li>
+      <li><b>Monthly basic salary:</b> ${fmtSGD(o.salary)}, payable monthly. CPF contributions per statutory rates where applicable.</li>
+      <li><b>Probation:</b> ${o.probation} months from commencement; notice during probation is 1 week, thereafter 1 month.</li>
+      <li><b>Hours &amp; leave:</b> per the Employment Act and the Company handbook.</li>
+      <li>This offer is conditional on your holding, or being granted, valid work authorisation for Singapore where applicable.</li>
+    </ol>
+    <p style="margin:0 0 8px">Please confirm your acceptance by signing and returning a copy of this letter.</p>
+    <p style="margin:0">Yours faithfully,<br>HR Department</p>
+  </div>
+  <p class="note" style="margin-top:8px">Deterministic template — salary, dates and statutory terms are code-generated, never AI-written. In production this letter is filed to SharePoint and routed through DOA before sending.</p>`;
+}
+function offerModal(c){
+  const d=new Date(); const start=new Date(d.getFullYear(),d.getMonth()+1,1);
+  const defStart=start.toISOString().slice(0,10);
+  const m=openModal(`
+    <div style="background:var(--ink);color:#eaf1f8;padding:13px 18px;display:flex;align-items:center;gap:8px"><span>✉</span><b>Offer terms — ${escHtml(c.name)}</b><span style="margin-left:auto;font-family:var(--mono);font-size:10px;color:#9fb6cc">${c.id} · ${escHtml(c.role)}</span></div>
+    <div id="ofBody" style="padding:18px 20px;overflow:auto">
+      <div style="display:flex;gap:10px"><div class="field" style="flex:1"><label>Monthly basic salary (S$) *</label><input id="ofSal" type="number" min="1" step="50" placeholder="e.g. 4500"></div>
+      <div class="field" style="flex:1"><label>Start date *</label><input id="ofStart" type="date" value="${defStart}"></div></div>
+      <div class="field"><label>Probation</label><select id="ofProb"><option value="3">3 months</option><option value="6">6 months</option></select></div>
+      <div id="ofPrev"></div>
+      <div id="ofErr" class="note" style="color:var(--crit);display:none"></div>
+    </div>
+    <div id="ofFoot" style="padding:14px 20px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--line-2)"><button class="btn ghost" data-close>Cancel</button><button class="btn" id="ofPreview">Preview Employment Letter ▶</button></div>`,620);
+  const err=m.ov.querySelector("#ofErr");
+  const terms=()=>{
+    const sal=m.ov.querySelector("#ofSal").value.trim(), st=m.ov.querySelector("#ofStart").value;
+    if(!sal||+sal<=0||!st){ err.textContent="A salary and start date are required to generate the letter."; err.style.display="block"; return null; }
+    err.style.display="none";
+    return {salary:+sal,start:st,probation:+m.ov.querySelector("#ofProb").value,when:TODAY};
+  };
+  m.ov.querySelector("#ofPreview").onclick=()=>{
+    const o=terms(); if(!o) return;
+    m.ov.querySelector("#ofPrev").innerHTML=`<div style="font-family:var(--mono);font-size:11px;color:var(--slate-2);text-transform:uppercase;letter-spacing:.05em;margin:6px 0 8px">Letter preview — review before sending (you are the checker)</div>`+offerLetterHTML(c,o);
+    const foot=m.ov.querySelector("#ofFoot");
+    foot.innerHTML=`<button class="btn ghost" data-close>Cancel</button><button class="btn ok" id="ofSend">✉ Send offer &amp; Employment Letter</button>`;
+    foot.querySelector("[data-close]").onclick=m.close;
+    foot.querySelector("#ofSend").onclick=()=>{
+      const o2=terms(); if(!o2) return;
+      if(fcfBlock(c.role)) return; /* re-check the gate at send time */
+      c.offerSent=true; c.offer=o2;
+      candLog(c,`Offer sent — ${fmtSGD(o2.salary)}/mo, start ${fmtDateInput(o2.start)}, probation ${o2.probation} mths`);
+      m.close();
+      showEmail(c.name+" <"+(c.email||"candidate@email")+">", "Offer of Employment — "+c.role, ["Dear "+c.name+",",`We are pleased to offer you the position of <b>${escHtml(c.role)}</b> commencing <b>${fmtDateInput(o2.start)}</b>. Your formal Employment Letter is attached for your review.`,"Please sign and return the Employment Letter to confirm your acceptance.","Regards, HR Department"]);
+      candMoveNext(c);
+    };
+  };
+}
+/* ---- Candidate profile & audit trail ---- */
+function candDetailModal(c){
+  const nd=c.nodeId&&pubNodeById(c.nodeId);
+  const status=c.done?`<span class="pill ok">Hired · ${c.letterRecorded||""}</span>`
+    :c.stage==="rejected"?`<span class="pill crit">Rejected · ${escHtml(c.rejReason||"")}</span>`
+    :`<span class="pill info">${nd?escHtml(wfNodeLabel(nd)):"—"}</span>`;
+  const row=(k,v)=>v?`<div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--line-2);font-size:12.5px"><div style="flex:0 0 110px;color:var(--slate-2);font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.04em;padding-top:1px">${k}</div><div style="flex:1">${v}</div></div>`:"";
+  const hist=(c.history||[]).slice().reverse().map(h=>`<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--line-2);font-size:12.5px"><div style="flex:0 0 128px;font-family:var(--mono);font-size:10.5px;color:var(--slate-3);padding-top:2px">${escHtml(h.t)}</div><div style="flex:1">${escHtml(h.m)}</div></div>`).join("")
+    ||`<p class="note">No logged activity yet — this candidate predates the audit trail or was seeded demo data.</p>`;
+  const m=openModal(`
+    <div style="background:var(--ink);color:#eaf1f8;padding:13px 18px;display:flex;align-items:center;gap:8px"><span>👤</span><b>${escHtml(c.name)}</b><span style="font-family:var(--mono);font-size:10px;color:#9fb6cc">${c.id}</span><span style="margin-left:auto">${status}</span></div>
+    <div style="padding:16px 20px;overflow:auto">
+      ${row("Role",escHtml(c.role||"—"))}${row("Experience",escHtml(c.exp||""))}${row("AI fit",`<span class="num">${fitScore(c)}</span>/100${c.aiRead?" · 🧠 CV read by AI":""}`)}
+      ${row("Contact",[c.email&&`<span class="mono">${escHtml(c.email)}</span>`,c.phone&&escHtml(c.phone)].filter(Boolean).join(" · "))}
+      ${row("Source",escHtml(c.source||""))}${row("Hirer",escHtml(c.hirer||""))}
+      ${row("Skills",escHtml(c.skills||""))}${row("Education",escHtml(c.education||""))}${row("Certifications",escHtml(c.certs||""))}
+      ${row("AI summary",c.summary?escHtml(c.summary):"")}
+      ${row("CV file",c.cv?escHtml(c.cv)+(c.spUrl?` · <a href="${escHtml(c.spUrl)}" target="_blank" rel="noopener" style="color:var(--steel)">📁 SharePoint</a>`:""):"")}
+      ${c.interview?row("Interview",`${fmtDateInput(c.interview.date)}, ${escHtml(c.interview.time)} · ${escHtml(c.interview.mode)} · ${escHtml(c.interview.loc)}${c.interview.interviewer?" · with "+escHtml(c.interview.interviewer):""}`):""}
+      ${c.offer?row("Offer",`${fmtSGD(c.offer.salary)}/mo · start ${fmtDateInput(c.offer.start)} · probation ${c.offer.probation} mths <button class="btn ghost" id="cdLetter" style="padding:2px 9px;font-size:11px;margin-left:6px">View letter</button>`):""}
+      <div style="font-family:var(--mono);font-size:11px;color:var(--slate-2);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 4px">Activity log · ${(c.history||[]).length} entries · retained for decision defensibility</div>
+      <div style="max-height:220px;overflow:auto">${hist}</div>
+    </div>
+    <div style="padding:12px 20px;display:flex;justify-content:flex-end;border-top:1px solid var(--line-2)"><button class="btn" data-close>Close</button></div>`,640);
+  const lb=m.ov.querySelector("#cdLetter");
+  if(lb) lb.onclick=()=>{ openModal(`<div style="background:var(--ink);color:#eaf1f8;padding:13px 18px"><b>Employment Letter — ${escHtml(c.name)}</b></div><div style="padding:16px 20px;overflow:auto">${offerLetterHTML(c,c.offer)}</div><div style="padding:12px 20px;text-align:right;border-top:1px solid var(--line-2)"><button class="btn" data-close>Close</button></div>`,620); };
 }
 function showEmail(to,subject,lines){
   const ov=document.createElement("div");
@@ -1130,7 +1255,9 @@ function openModal(inner,maxw){
   ov.style.cssText="position:fixed;inset:0;background:rgba(20,32,46,.55);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;overflow:auto";
   ov.innerHTML=`<div style="background:#fff;border-radius:12px;max-width:${maxw||560}px;width:100%;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35);max-height:92vh;display:flex;flex-direction:column">${inner}</div>`;
   document.body.appendChild(ov);
-  const close=()=>ov.remove();
+  const onKey=e=>{ if(e.key==="Escape") close(); };
+  const close=()=>{ document.removeEventListener("keydown",onKey); ov.remove(); };
+  document.addEventListener("keydown",onKey);
   ov.onclick=e=>{ if(e.target===ov) close(); };
   ov.querySelectorAll("[data-close]").forEach(b=>b.onclick=close);
   return {ov,close};
@@ -1364,14 +1491,15 @@ function addCandidateModal(){
     const src=m.ov.querySelector("#acSrc").value, srcD=m.ov.querySelector("#acSrcD").value.trim(), source=src+(srcD?" · "+srcD:"");
     aiParseFlow(m,body,foot,f,(d)=>{
       const rec={id:nextCandId(),name:d.name,role:d.role,exp:d.exp,stage:"screening",source,cv:f.name,email:d.email,phone:d.phone,skills:d.skills,education:d.education,certs:d.certs,summary:d.summary,cvText:d.cvText,parsed:d.real,aiRead:d.ai};
+      candLog(rec,`CV received (${source}) — ${d.ai?"parsed by AI reader":d.real?"text extracted locally":"heuristic parse"}; PDPA consent recorded`);
       CANDIDATES.push(rec);
       engineEnter(rec); saveAppState();
       m.close();
       if(spConfigured()&&typeof msal!=="undefined"){
         rec.spStatus="uploading";
         spUpload(f,rec)
-          .then(j=>{ rec.spStatus="done"; rec.spUrl=j.webUrl; })
-          .catch(err=>{ rec.spStatus="failed"; rec.spErr=String(err.message||err); })
+          .then(j=>{ rec.spStatus="done"; rec.spUrl=j.webUrl; candLog(rec,"CV filed to SharePoint"); saveAppState(); })
+          .catch(err=>{ rec.spStatus="failed"; rec.spErr=String(err.message||err); candLog(rec,"SharePoint filing failed — "+String(err.message||err).slice(0,80)); saveAppState(); })
           .finally(()=>{ if(view==="recruitment"&&recruitTab==="candidates") renderRecruitment(); });
       }
       renderRecruitment();
@@ -1399,6 +1527,7 @@ function intakePreview(){
     if(!m.ov.querySelector("#ikConsent").checked){ err.textContent="Consent is required to submit."; err.style.display="block"; return; }
     aiParseFlow(m,body,foot,f,(d)=>{
       const rec2={id:nextCandId(),name:d.name,role:d.role||"Site Engineer",exp:d.exp,stage:"screening",source:"Direct application",cv:f.name,email:d.email,phone:d.phone,skills:d.skills,education:d.education,certs:d.certs,summary:d.summary,cvText:d.cvText,parsed:d.real,aiRead:d.ai};
+      candLog(rec2,"CV received (direct application page) — candidate consented to PDPA notice");
       CANDIDATES.push(rec2); engineEnter(rec2); saveAppState();
       body.innerHTML=`<div style="text-align:center;padding:34px 12px"><div style="font-size:42px;color:var(--ok)">✓</div><div style="font-size:17px;font-weight:600;margin-top:8px">Application received</div><div style="font-size:13px;color:var(--slate-2);margin:6px auto 0;max-width:38ch">Thank you, ${d.name}. We read your CV and added your application to the screening queue.</div></div>`;
       foot.innerHTML=`<button class="btn" id="ikDone">Done</button>`;
@@ -1768,6 +1897,7 @@ function engineAdvance(c){
 function candMoveNext(c,port){
   const nx=pubNext(c.nodeId,port);
   if(!nx){ c.deadEnd=true; } else { c.nodeId=nx; c.deadEnd=false; engineAdvance(c); }
+  if(!c.deadEnd&&c.stage!=="rejected"){ const n=pubNodeById(c.nodeId); if(n) candLog(c,"→ "+wfNodeLabel(n)); }
   saveAppState(); renderRecruitment();
 }
 function engineEnter(c){
@@ -1775,6 +1905,7 @@ function engineEnter(c){
   const cols=wfPubCols();
   c.nodeId=intake?intake.id:(cols[0]&&cols[0].node.id);
   if(c.nodeId) engineAdvance(c);
+  if(c.nodeId&&c.stage!=="rejected"){ const n=pubNodeById(c.nodeId); candLog(c,"Entered pipeline (workflow v"+WFPUB.version+")"+(n?" → "+wfNodeLabel(n):"")); }
 }
 function firstNodeOfType(t){ const n=WFPUB.nodes.filter(x=>x.type===t).sort((a,b)=>a.x-b.x)[0]; return n&&n.id; }
 function migrateCandidates(oldTypes){
