@@ -1317,21 +1317,78 @@ function ageFromDob(dobStr){
   if(t.getMonth()<d.getMonth()||(t.getMonth()===d.getMonth()&&t.getDate()<d.getDate())) a--;
   return (a>=14&&a<90)?a:null;
 }
-/* employment-history lines like "Primustech Pte Ltd, Singapore (Mar/2023 – Present) BIM Team Lead" */
-const TITLE_WORDS=/\b(specialist|engineer|coordinator|manager|surveyor|executive|modell?er|drafter|draftsman|architect|supervisor|planner|estimator|technician|designer|foreman|lead|bim|m&e|qs|quantity|safety)\b/i;
-const EMP_RX=/^(.{3,60}?)[\s,]*\(?\s*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?[\s\/.'-]*(\d{4})\s*(?:–|—|-|~|to|till|until)+\s*(?:(present|current|till date|now)|(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?[\s\/.'-]*(\d{4}))\s*\)?\s*(.*)$/i;
+/* employment history — layout-aware: handles "Company (Mar/2023 – Present) Title",
+   dates on their own line under the company, "MM/YYYY" and year-only ranges */
+const TITLE_WORDS=/\b(specialist|engineer|coordinator|manager|surveyor|executive|modell?er|drafter|draftsman|architect|supervisor|planner|estimator|technician|designer|foreman|lead|bim|mep|m&e|qs|quantity|safety)\b/i;
+const CORP_WORDS=/\b(pte|ltd|llc|l\.l\.c|w\.l\.l|wll|inc|co\.|company|corp|group|contracting|contractors?|engineering|construction|builders?|consultants?|holdings?|enterprises?)\b/i;
+const MRX="(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\.?";
+const RANGE_RX=new RegExp("((?:"+MRX+"[\\s/.'-]*)?\\d{4}|\\d{1,2}[/.-]\\d{4})\\s*(?:–|—|-|~|to|till|until)+\\s*((?:"+MRX+"[\\s/.'-]*)?\\d{4}|\\d{1,2}[/.-]\\d{4}|present|current|now|till\\s*date)","i");
+function parseDateToken(tok,isEnd){
+  tok=String(tok||"").trim();
+  if(/present|current|now|till\s*date/i.test(tok)) return null; /* caller treats null end as Present */
+  let m=tok.match(new RegExp("^("+MRX+")[\\s/.'-]*(\\d{4})$","i"));
+  if(m) return parseMonYr(m[1],m[2]);
+  m=tok.match(/^(\d{1,2})[\/.-](\d{4})$/);
+  if(m&&+m[1]>=1&&+m[1]<=12) return (+m[2]>1950&&+m[2]<2100)?{y:+m[2],m:+m[1]-1}:null;
+  m=tok.match(/^(\d{4})$/);
+  if(m&&+m[1]>1950&&+m[1]<2100) return {y:+m[1],m:isEnd?11:0}; /* year-only: Jan start / Dec end */
+  return null;
+}
+function stripLoc(n){ return n.replace(/[,\s]+(singapore|malaysia|india|myanmar|qatar|uae|dubai|abu dhabi|doha|saudi arabia|ksa|egypt|cairo|sg)[.,\s]*$/i,"").replace(/^[–—\-•·|,("'\s]+|[–—\-•·|,)("'\s]+$/g,"").trim(); }
+function splitCompanyTitle(base){
+  let name=stripLoc(base), title="";
+  const parts=name.split(/\s*(?:\||—|–| - |·)\s*/).filter(Boolean);
+  if(parts.length>=2){
+    const ti=parts.findIndex(p=>TITLE_WORDS.test(p)&&!CORP_WORDS.test(p)&&p.length<45);
+    if(ti>=0){ title=parts[ti].trim(); name=parts.filter((x,i)=>i!==ti).join(", "); }
+  } else {
+    const cp=name.split(/\s*,\s*/);
+    if(cp.length>=2&&TITLE_WORDS.test(cp[0])&&!CORP_WORDS.test(cp[0])&&cp[0].length<45){ title=cp[0]; name=cp.slice(1).join(", "); }
+  }
+  name=stripLoc(name);
+  if(name.length>60) name=name.slice(0,60).replace(/\s+\S*$/,"");
+  return {name,title};
+}
+const WORK_HEAD=/\b(work|professional|employment|career)\b.*\b(experience|history)\b|^experience\b/i;
+const SECTION_END=/^(education|academic|qualifications?|(professional\s+)?certifications?|skills?|software|technical|personal|languages?|declaration|references?|training|hobbies|interests|achievements?|projects? handled)\b/i;
+const EDU_LINE=/university|college|degree|b\.?sc|b\.?e\b|bachelor|diploma|school|institute|academy|gpa|graduated/i;
 function extractEmployers(text){
-  const out=[], now=ymNow(), seen=new Set();
-  text.split(/\n+/).forEach(L=>{
-    const m=L.trim().match(EMP_RX); if(!m) return;
-    const name=m[1].replace(/[,\s]+(singapore|malaysia|india|myanmar|sg)?[.,\s]*$/i,"").trim();
-    if(!name||name.length<3||/^\d/.test(name)||/experience|education|birth/i.test(name)) return;
-    const from=parseMonYr(m[2],m[3]); if(!from) return;
-    const to=m[4]?null:parseMonYr(m[5],m[6]); if(!m[4]&&!to) return;
-    const k=name.toLowerCase()+"|"+from.y+"-"+from.m; if(seen.has(k)) return; seen.add(k);
-    const title=(m[7]||"").replace(/^[–—\-·|,\s]+/,"").trim();
-    out.push({name,title:(TITLE_WORDS.test(title)&&title.length<45)?title:"",from,to,months:ymDiff(from,to||now)});
+  const lines=text.split(/\n+/).map(x=>x.trim());
+  /* prefer the WORK EXPERIENCE section(s); fall back to the whole CV minus education-looking lines */
+  let idxs=[]; let inWork=false, sawHead=false;
+  lines.forEach((L,i)=>{
+    if(L.length<60&&WORK_HEAD.test(L)){ inWork=true; sawHead=true; return; }
+    if(inWork&&L.length<45&&SECTION_END.test(L)){ inWork=false; return; }
+    if(inWork) idxs.push(i);
   });
+  if(!sawHead) idxs=lines.map((L,i)=>i);
+  const out=[], now=ymNow(), seen=new Set();
+  for(const i of idxs){
+    const L=lines[i]; if(!L) continue;
+    const m=L.match(RANGE_RX); if(!m) continue;
+    if(!sawHead&&(EDU_LINE.test(L)||(lines[i-1]&&EDU_LINE.test(lines[i-1])))) continue; /* degree years, not a job */
+    const from=parseDateToken(m[1],false); if(!from||from.y<1970||from.y>now.y) continue;
+    let to=parseDateToken(m[2],true);
+    if(to&&(to.y*12+to.m)<(from.y*12+from.m)) continue;
+    if(!to&&!/present|current|now|till\s*date/i.test(m[2])) continue;
+    let prefix=L.slice(0,m.index).replace(/[\s,;:(\[–—\-]+$/,"").trim();
+    let suffix=L.slice(m.index+m[0].length).replace(/^[\s,;:)\]–—\-]+/,"").trim();
+    let name="", title="";
+    if(prefix.length>=3){
+      if(suffix&&TITLE_WORDS.test(suffix)&&suffix.length<45){ title=suffix; name=stripLoc(prefix); }
+      else { const sp=splitCompanyTitle(prefix); name=sp.name; title=sp.title; }
+    } else {
+      /* date range on its own line — the company is usually the line above */
+      let j=i-1; while(j>=0&&!lines[j]) j--;
+      if(j>=0&&lines[j].length>=3&&!RANGE_RX.test(lines[j])&&!WORK_HEAD.test(lines[j])&&!EDU_LINE.test(lines[j])){
+        const sp=splitCompanyTitle(lines[j]); name=sp.name; title=sp.title;
+      }
+    }
+    if(!name||name.length<3||/^\d+$/.test(name)||/experience|education|birth|curriculum/i.test(name)) continue;
+    const k=name.toLowerCase()+"|"+from.y+"-"+from.m; if(seen.has(k)) continue; seen.add(k);
+    out.push({name,title:(title&&title.length<45)?title:"",from,to,months:ymDiff(from,to||now)});
+    if(out.length>=12) break;
+  }
   return out;
 }
 function employerLabel(e){ return `${e.name}${e.title?" — "+e.title:""} · ${fmtMY(e.from)} – ${e.to?fmtMY(e.to):"Present"} (${fmtTenure(e.months)})`; }
@@ -1353,7 +1410,7 @@ function extractEducation(text){
   while((m=rx.exec(text))){
     const r=EDU_RANK.findIndex(x=>x[0].test(m[1]));
     if(r>=0&&r<rank){ rank=r; level=EDU_RANK[r][1]; }
-    let f=(m[2]||"").split(/\s+(?:graduate|with|from|holder|certified|and)\b/i)[0].replace(/\s+/g," ").trim();
+    let f=(m[2]||"").split(/\s+(?:graduate|graduated|with|from|holder|certified|and|by|at|grade|gpa|cgpa|university|college|institute|academy|good|very|excellent)\b/i)[0].replace(/\s+/g," ").trim();
     f=f.replace(/^(?:b\.?e(?:ng)?|b\.?sc|b\.?tech|b\.?a|m\.?sc|m\.?eng|mba|in|of)\s+/i,"");
     if(f.length>40) f=f.slice(0,40).replace(/\s+\S*$/,"");
     if(f&&f.length>3){
@@ -1567,10 +1624,18 @@ async function extractCvText(file){
   }catch(e){ return null; }
 }
 const SKILL_DICT=["autocad","revit","bim","tekla","navisworks","clash detection","iso 19650","iso19650","common data environment","cde","solibri","revizto","aconex","parametric families","gfc drawings","rc structures","structural","bca submission","bca","site supervision","site management","concrete","piling","formwork","cost estimation","tendering","tender","bq","bill of quantities","contract administration","quantity surveying","ms project","primavera","p6","scheduling","subcontractor","rfi","shop drawing","wsh","bizsafe","risk assessment","toolbox","safety audit","incident investigation","m&e","acmv","electrical","plumbing","testing and commissioning","quality control","iso 9001"];
+function extractPhone(text){
+  /* a labelled line wins — avoids trimming long international numbers to an SG-looking 8 digits */
+  const lab=text.match(/(?:phone|mobile|contact|tel|hp|whatsapp)[^\n\d+]{0,15}(\+?\d[\d\s\-().\/]{6,18}\d)/i);
+  if(lab) return lab[1].replace(/\s{2,}/g," ").trim();
+  const intl=text.match(/\+\d{1,3}[\s-]?\d{2,4}[\s-]?\d{3,4}[\s-]?\d{2,6}/);
+  if(intl) return intl[0].trim();
+  return (text.match(/(?:\+?65[\s-]?)?[89]\d{3}[\s-]?\d{4}/)||[""])[0];
+}
 function extractEntities(text){
   const lt=text.toLowerCase();
   const email=(text.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/)||[""])[0];
-  const phone=(text.match(/(?:\+?65[\s-]?)?[89]\d{3}[\s-]?\d{4}/)||text.match(/\+\d{1,3}[\s-]?\d{7,10}/)||[""])[0];
+  const phone=extractPhone(text);
   const lines=text.split(/\n+/).map(x=>x.trim()).filter(Boolean);
   let name="";
   const lm=text.match(/\bname\s*[:：]\s*([A-Za-z][A-Za-z' .\-]{2,39})/i);
