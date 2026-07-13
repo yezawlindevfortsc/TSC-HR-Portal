@@ -1378,33 +1378,156 @@ function pdfUnesc(t){
   const map={n:"\n",r:"",t:" ","(":"(",")":")","\\":"\\"};
   return t.replace(/\\(\d{1,3}|.)/g,(a,g)=>{ if(/^\d+$/.test(g)) return String.fromCharCode(parseInt(g,8)||32); return map[g]!==undefined?map[g]:g; });
 }
-function pdfTextFromContent(c){
-  const parts=[]; const rx=/\(((?:\\.|[^\\()])*)\)\s*(?:Tj|'|")|\[((?:\((?:\\.|[^\\()])*\)|[^\]])*)\]\s*TJ|T\*/g; let m;
-  while((m=rx.exec(c))){
-    if(m[0]==="T*"){ parts.push("\n"); continue; }
-    if(m[1]!==undefined) parts.push(pdfUnesc(m[1]));
-    else if(m[3]!==undefined){ let buf=""; const r2=/\(((?:\\.|[^\\()])*)\)/g; let m2; while((m2=r2.exec(m[3]))) buf+=pdfUnesc(m2[1]); parts.push(buf); }
+/* ToUnicode CMap support — Word / Chrome / most agency PDFs embed subset fonts with
+   CID (Identity-H) encoding: the text ops carry glyph IDs, and each font ships a
+   ToUnicode CMap that maps them back to characters. We resolve page → font → CMap
+   and decode; simple-encoded PDFs still take the plain-text path. */
+function hexToUtf16(h){
+  if(h.length<=2) return String.fromCharCode(parseInt(h.padStart(2,"0"),16));
+  let out=""; for(let i=0;i+4<=h.length;i+=4) out+=String.fromCharCode(parseInt(h.slice(i,i+4),16));
+  return out;
+}
+function parseCMap(c){
+  const map=new Map(); let blen=2, m;
+  const cs=c.match(/begincodespacerange\s+<([0-9A-Fa-f]+)>/); if(cs) blen=Math.max(1,Math.round(cs[1].length/2));
+  const bfc=/beginbfchar([\s\S]*?)endbfchar/g;
+  while((m=bfc.exec(c))){
+    const rx=/<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>/g; let p;
+    while((p=rx.exec(m[1]))) map.set(parseInt(p[1],16),hexToUtf16(p[2]));
   }
-  return parts.join(" ");
+  const bfr=/beginbfrange([\s\S]*?)endbfrange/g;
+  while((m=bfr.exec(c))){
+    const rx=/<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>\s*(?:<([0-9A-Fa-f]+)>|\[\s*((?:<[0-9A-Fa-f]+>\s*)+)\])/g; let r;
+    while((r=rx.exec(m[1]))){
+      const a=parseInt(r[1],16), b=Math.min(parseInt(r[2],16),a+65535);
+      if(r[3]!==undefined){
+        const t=hexToUtf16(r[3]);
+        for(let i=a;i<=b;i++) map.set(i,t.slice(0,-1)+String.fromCharCode(t.charCodeAt(t.length-1)+(i-a)));
+      } else {
+        const arr=(r[4].match(/<([0-9A-Fa-f]+)>/g)||[]).map(x=>x.slice(1,-1));
+        arr.forEach((h,i)=>{ if(a+i<=b) map.set(a+i,hexToUtf16(h)); });
+      }
+    }
+  }
+  return map.size?{map,blen}:null;
+}
+function cidDecodeHex(h,f){
+  h=h.replace(/\s+/g,"");
+  if(!f){ let o=""; for(let i=0;i+2<=h.length;i+=2) o+=String.fromCharCode(parseInt(h.slice(i,i+2),16)); return o; }
+  const step=f.blen*2; let o="";
+  for(let i=0;i+step<=h.length;i+=step){ const u=f.map.get(parseInt(h.slice(i,i+step),16)); if(u!==undefined) o+=u; }
+  return o;
+}
+function cidDecodeLit(t,f){
+  const raw=pdfUnesc(t);
+  if(!f) return raw;
+  let o="";
+  for(let i=0;i+f.blen<=raw.length;i+=f.blen){
+    let code=0; for(let k=0;k<f.blen;k++) code=(code<<8)|raw.charCodeAt(i+k);
+    const u=f.map.get(code); if(u!==undefined) o+=u;
+  }
+  return o;
+}
+function pdfTextFromContent(c,fonts){
+  const toks=[]; let cur=fonts?(fonts["*"]||null):null;
+  const rx=/\/(\w+)\s+[\d.]+\s+Tf|<([0-9A-Fa-f\s]*)>\s*(?:Tj|'|")|\(((?:\\.|[^\\()])*)\)\s*(?:Tj|'|")|\[((?:<[0-9A-Fa-f\s]*>|\((?:\\.|[^\\()])*\)|[^\]])*)\]\s*TJ|T\*|\bBT\b/g;
+  let m;
+  while((m=rx.exec(c))){
+    if(m[0]==="T*"||m[0]==="BT"){ toks.push("\n"); continue; }
+    if(m[1]!==undefined){ if(fonts) cur=(fonts[m[1]]!==undefined)?fonts[m[1]]:(fonts["*"]||null); continue; }
+    if(m[2]!==undefined){ toks.push(cidDecodeHex(m[2],cur)); continue; }
+    if(m[3]!==undefined){ toks.push(cidDecodeLit(m[3],cur)); continue; }
+    if(m[4]!==undefined){
+      let buf=""; const r2=/<([0-9A-Fa-f\s]*)>|\(((?:\\.|[^\\()])*)\)/g; let m2;
+      while((m2=r2.exec(m[4]))) buf+=(m2[1]!==undefined)?cidDecodeHex(m2[1],cur):cidDecodeLit(m2[2],cur);
+      toks.push(buf);
+    }
+  }
+  /* per-glyph runs (CID) join tight — the space is its own glyph; word-per-run (simple fonts) get a separator */
+  let out="";
+  for(const t of toks){
+    if(t==="\n"){ if(!out.endsWith("\n")) out+="\n"; continue; }
+    if(!t) continue;
+    if(out&&!out.endsWith("\n")&&!out.endsWith(" ")&&t.length>1) out+=" ";
+    out+=t;
+  }
+  return out;
 }
 async function readPdfBytes(bytes){
   const s=latin1(bytes); if(s.indexOf("%PDF")!==0) return null;
-  let out=[],idx=0;
-  while(true){
-    const si=s.indexOf("stream",idx); if(si<0) break;
-    let ds=si+6; if(s[ds]==="\r") ds++; if(s[ds]==="\n") ds++;
-    const ei=s.indexOf("endstream",ds); if(ei<0) break;
-    const dictStart=s.lastIndexOf("<<",si);
-    const dict=dictStart>=0?s.slice(dictStart,si):"";
-    let content=null;
-    if(dict.indexOf("FlateDecode")>=0){ const inf=await inflateBytes(bytes.subarray(ds,ei),false); if(inf) content=latin1(inf); }
-    else if(dict.indexOf("/Image")<0) content=s.slice(ds,ei);
-    if(content&&(content.indexOf("Tj")>=0||content.indexOf("TJ")>=0)) out.push(pdfTextFromContent(content));
-    idx=ei+9;
+  /* index top-level objects (dict text + stream position) */
+  const objs={}; const orx=/(\d+)\s+0\s+obj\b/g; let om;
+  while((om=orx.exec(s))){
+    const start=om.index+om[0].length;
+    const eo=s.indexOf("endobj",start); const st=s.indexOf("stream",start);
+    const lim=eo<0?s.length:eo;
+    objs[+om[1]]={dict:s.slice(start,Math.min(lim,start+6000)),streamAt:(st>=0&&st<lim)?st:-1};
   }
-  let text=out.join("\n").replace(/[ \t]{2,}/g," ").trim();
+  const streamCache={};
+  async function objStream(n){
+    if(streamCache[n]!==undefined) return streamCache[n];
+    const o=objs[n]; if(!o||o.streamAt<0) return (streamCache[n]=null);
+    let ds=o.streamAt+6; if(s[ds]==="\r")ds++; if(s[ds]==="\n")ds++;
+    const ei=s.indexOf("endstream",ds); if(ei<0) return (streamCache[n]=null);
+    let end=ei; while(end>ds&&" \r\n".indexOf(s[end-1])>=0) end--; /* trailing EOL breaks DecompressionStream */
+    let out=null;
+    if(o.dict.indexOf("FlateDecode")>=0){ const inf=await inflateBytes(bytes.subarray(ds,end),false); out=inf?latin1(inf):null; }
+    else if(o.dict.indexOf("/Image")<0) out=s.slice(ds,end);
+    return (streamCache[n]=out);
+  }
+  const cmapCache={};
+  async function fontCmap(fn){
+    if(cmapCache[fn]!==undefined) return cmapCache[fn];
+    let cm=null; const fo=objs[fn];
+    if(fo){ const tu=fo.dict.match(/\/ToUnicode\s+(\d+)\s+0\s+R/); if(tu){ const cs=await objStream(+tu[1]); if(cs) cm=parseCMap(cs); } }
+    return (cmapCache[fn]=cm);
+  }
+  /* primary path: walk /Type /Page → resources → fonts → content */
+  const pageTexts=[];
+  for(const nStr of Object.keys(objs)){
+    const d=objs[+nStr].dict;
+    if(!/\/Type\s*\/Page\b/.test(d)) continue;
+    let res=d; const rref=d.match(/\/Resources\s+(\d+)\s+0\s+R/);
+    if(rref&&objs[+rref[1]]) res=objs[+rref[1]].dict;
+    const fonts={}; const fsec=res.indexOf("/Font");
+    if(fsec>=0){
+      const chunk=res.slice(fsec+5,fsec+900);
+      let fm; const frx=/\/(\w+)\s+(\d+)\s+0\s+R/g;
+      while((fm=frx.exec(chunk))) fonts[fm[1]]=await fontCmap(+fm[2]);
+    }
+    const cm=d.match(/\/Contents\s+((?:\d+\s+0\s+R)|\[[^\]]*\])/);
+    if(!cm) continue;
+    const cnums=(cm[1].match(/(\d+)\s+0\s+R/g)||[]).map(x=>+x.match(/\d+/)[0]);
+    let content=""; for(const cn of cnums){ const t=await objStream(cn); if(t) content+=t+"\n"; }
+    if(content&&(content.indexOf("Tj")>=0||content.indexOf("TJ")>=0)) pageTexts.push(pdfTextFromContent(content,fonts));
+  }
+  let text=pageTexts.join("\n");
+  if(!text){
+    /* fallback (compressed xref / unusual layout): scan raw streams, resolve CIDs via a merged map */
+    const merged=new Map(); let blen=2, idx=0; const all=[];
+    while(true){
+      const si=s.indexOf("stream",idx); if(si<0) break;
+      if(s.slice(si-3,si)==="end"){ idx=si+6; continue; }
+      let ds=si+6; if(s[ds]==="\r")ds++; if(s[ds]==="\n")ds++;
+      const ei=s.indexOf("endstream",ds); if(ei<0) break;
+      let end=ei; while(end>ds&&" \r\n".indexOf(s[end-1])>=0) end--;
+      const dictStart=s.lastIndexOf("<<",si);
+      const dict=dictStart>=0?s.slice(dictStart,si):"";
+      let content=null;
+      if(dict.indexOf("FlateDecode")>=0){ const inf=await inflateBytes(bytes.subarray(ds,end),false); if(inf) content=latin1(inf); }
+      else if(dict.indexOf("/Image")<0) content=s.slice(ds,end);
+      if(content){
+        if(content.indexOf("beginbf")>=0){ const cm2=parseCMap(content); if(cm2){ blen=cm2.blen; cm2.map.forEach((v,k)=>{ if(!merged.has(k)) merged.set(k,v); }); } }
+        else if(content.indexOf("Tj")>=0||content.indexOf("TJ")>=0) all.push(content);
+      }
+      idx=ei+9;
+    }
+    const f=merged.size?{map:merged,blen}:null;
+    text=all.map(c=>pdfTextFromContent(c,f?{"*":f}:null)).join("\n");
+  }
+  text=text.replace(/[ \t]{2,}/g," ").trim();
   const letters=(text.match(/[A-Za-z]/g)||[]).length;
-  if(text.length<40||letters/Math.max(1,text.length)<0.35) return null; /* scanned image or CID-encoded — needs OCR/LLM in production */
+  if(text.length<40||letters/Math.max(1,text.length)<0.35) return null; /* scanned image or encrypted — needs the AI reader */
   return text;
 }
 async function readDocxBytes(bytes){
