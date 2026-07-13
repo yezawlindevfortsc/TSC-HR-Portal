@@ -49,6 +49,21 @@ repo's HTML documents — start at `index.html` (the hub).
     fallback), **SharePoint filing** via Microsoft Graph delegated auth
     (MSAL popup; filename convention `YYYYMMDD_Role_Name_Experience.ext`),
     Statistics dashboard, hirer list, FCF offer blocking.
+  - Recruitment additions (Jul 2026, PRs #1–#3, all live): interview
+    scheduling modal (real date/time in invite emails), offer-terms modal
+    generating a deterministic Employment Letter preview, per-candidate
+    timestamped audit trail (click any candidate name, incl. rejected),
+    designer canvas scroll fix, CV screener v2 — reads CID/Identity-H
+    PDFs via ToUnicode CMaps in-browser, layout-aware employment-history
+    parsing (tenure per employer + total computed from dates), DOB/age,
+    education level/faculty, intl phone; unreadable files give a BLANK
+    form (no fabricated data, name-guess from filename only).
+  - **CV heuristic accuracy is parked by user decision** — good enough
+    until the OpenAI key arrives; the AI reader is the accuracy path.
+    Real user-tested CVs: Aravinthakumar (BIM Specialist, same-line
+    dates) parses well; Ramy Zidan (dates-under-employer layout) mostly
+    parses. Don't sink more time into heuristics; wire & test the AI
+    path when the key is entered (🧠 panel → Save & test).
 - **Docs in repo**: requirements spec (SRS v0.2 .docx), architecture spec
   (incl. AI–PII sandbox, CV pipeline, external actors), gap analysis,
   roadmap (~50–65 eng-wks, 4 phases), management brief (S$ ranges),
@@ -71,7 +86,10 @@ repo's HTML documents — start at `index.html` (the hub).
 ## Pending / waiting on
 
 - OpenAI API key (user adding billing) → entered in the 🧠 AI reader panel
-  in the live app, never in chat.
+  in the live app, never in chat. **First task when it lands**: verify the
+  AI path end-to-end with the user's two real test CVs, check the new
+  fields (DOB/age, education level/faculty, employers[] dates-only →
+  tenure computed in code) come through, then revisit CV accuracy.
 - From IT: SharePoint folder URL + Entra app registration (client ID,
   tenant ID; SPA redirect URIs incl. the Vercel URL) → 📁 SharePoint panel.
 - Azure subscription decision (unblocks Phase 0: real backend, DB, staging).
