@@ -266,6 +266,8 @@
   .wf-edges{position:absolute;inset:0;width:100%;height:100%;}
   .wf-node{position:absolute;width:170px;background:#fff;border:1.5px solid var(--line);border-radius:11px;box-shadow:var(--shadow-sm);user-select:none;touch-action:none;}
   .wf-node .nh{display:flex;align-items:center;gap:7px;padding:8px 10px 4px;font-size:12.5px;font-weight:600;cursor:grab;}
+  .wf-node .ncfg{margin-left:auto;color:var(--slate-3);cursor:pointer;font-size:12px;padding:0 3px;border-radius:4px;}
+  .wf-node .ncfg:hover{color:var(--steel);background:var(--steel-soft);}
   .wf-node .nd{font-size:10px;color:var(--slate-2);padding:0 10px 8px;line-height:1.35;}
   .wf-node.sel{border-color:var(--steel);box-shadow:0 0 0 3px rgba(53,84,224,.14);}
   .wf-node.exec{border-color:var(--warn);box-shadow:0 0 0 3px rgba(169,107,6,.22);}
@@ -1846,7 +1848,7 @@ const WF_TYPES={
   parse:{label:"AI · Parse CV",cat:"ai",desc:"Extract fields from the CV (sandboxed)"},
   screen:{label:"AI · Fit Score",cat:"ai",desc:"Deterministic score vs role profile"},
   draft:{label:"AI · Draft Email",cat:"ai",desc:"Drafts a message for human review"},
-  cond:{label:"Condition · Fit ≥ 75",cat:"logic",desc:"Branches Yes / No on the fit score",two:true},
+  cond:{label:"Condition · Fit ≥ 75",cat:"logic",desc:"Branches Yes / No on the fit score — click ✎ on the node to set the threshold",two:true},
   fcf:{label:"FCF Gate 🔒",cat:"logic",desc:"Holds flow until the 14-day window is served",guard:true},
   review:{label:"Human Review",cat:"human",desc:"HR reviews before continuing"},
   hirer:{label:"Hirer Response",cat:"human",desc:"Secure-link reply recorded (Yes/No)",two:true},
@@ -1911,7 +1913,9 @@ function nodeEl(n){
   const el=document.createElement("div");
   el.className="wf-node"; el.dataset.id=n.id;
   el.style.left=n.x+"px"; el.style.top=n.y+"px";
-  el.innerHTML=`<div class="nh"><span class="pal-dot" style="background:${cat.c}"></span>${t.label}</div><div class="nd">${t.desc}</div>`
+  const lbl=(n.type==="cond")?`Condition · Fit ≥ ${n.th!=null?n.th:75}`:t.label;
+  const cfg=(n.type==="cond")?`<span class="ncfg" data-cfg="${n.id}" title="Set the fit threshold">✎</span>`:"";
+  el.innerHTML=`<div class="nh"><span class="pal-dot" style="background:${cat.c}"></span>${lbl}${cfg}</div><div class="nd">${t.desc}</div>`
     +(n.type!=="intake"?`<span class="port in" data-port="in"></span>`:"")
     +(t.two?`<span class="port out yes" data-port="yes" title="Yes branch"></span><span class="port out no" data-port="no" title="No branch"></span>`
       :(t.terminal?"":`<span class="port out" data-port="out"></span>`));
@@ -2049,7 +2053,7 @@ async function wfRunSim(){
       case "parse": wfLog("🤖 CV parsed — fields extracted (sandboxed, de-identified)"); break;
       case "screen": wfLog(`🤖 Fit score computed: <b>${s.fit}</b>`); break;
       case "draft": wfLog("🤖 Email drafted — held for a human/action node"); break;
-      case "cond": port=s.fit>=75?"yes":"no"; wfLog(`◆ Fit ≥ 75 → <b>${port.toUpperCase()}</b> (${s.fit})`); break;
+      case "cond": { const th=cur.th!=null?cur.th:75; port=s.fit>=th?"yes":"no"; wfLog(`◆ Fit ≥ ${th} → <b>${port.toUpperCase()}</b> (${s.fit})`); break; }
       case "fcf":
         if(s.fcfClear) wfLog("✓ FCF Gate: advertising window already served — pass");
         else { wfLog("⛔ FCF Gate: window still open — flow <b>HELD</b>…"); await wait(900); wfLog("… window served (simulated) — released"); }
@@ -2076,12 +2080,31 @@ async function wfRunSim(){
   wfLog("— run complete —");
   wfRunning=false; wfLintRun();
 }
+function condConfigModal(id){
+  const n=wfNodeById(id); if(!n||n.type!=="cond") return;
+  const m=openModal(`
+    <div style="background:var(--ink);color:#eaf1f8;padding:13px 18px;display:flex;align-items:center;gap:8px"><span>◆</span><b>Condition — fit score threshold</b></div>
+    <div style="padding:18px 20px">
+      <p style="margin:0 0 12px;font-size:12.5px;color:var(--slate-2)">Candidates with an AI fit score <b>at or above</b> this number take the green YES branch; below it, the red NO branch. The comparison is deterministic code — no AI in the decision.</p>
+      <div class="field"><label>Threshold (0–98)</label><input id="cthVal" type="number" min="0" max="98" step="1" value="${n.th!=null?n.th:75}"></div>
+      <div id="cthErr" class="note" style="color:var(--crit);display:none"></div>
+    </div>
+    <div style="padding:14px 20px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--line-2)"><button class="btn ghost" data-close>Cancel</button><button class="btn" id="cthSave">Save threshold</button></div>`,430);
+  m.ov.querySelector("#cthSave").onclick=()=>{
+    const v=Math.round(+m.ov.querySelector("#cthVal").value);
+    if(!(v>=0&&v<=98)){ const e2=m.ov.querySelector("#cthErr"); e2.textContent="Enter a number between 0 and 98."; e2.style.display="block"; return; }
+    n.th=v; saveWF(); m.close(); wfMountAll(); wfLintRun();
+    const note=document.getElementById("wfPubNote"); if(note) note.textContent=`live: v${WFPUB.version} · draft: threshold set to ${v} — 🚀 Publish to apply`;
+  };
+}
 let wfGlobalsBound=false;
 function initDesigner(){
   const canvas=wfCanvasEl(); if(!canvas) return;
   wfMountAll(); wfLintRun();
   const cpos=ev=>{ const r=canvas.getBoundingClientRect(); return {x:ev.clientX-r.left,y:ev.clientY-r.top}; };
   canvas.addEventListener("pointerdown",e=>{
+    const cfg=e.target.closest(".ncfg");
+    if(cfg){ e.preventDefault(); condConfigModal(cfg.dataset.cfg); return; }
     const port=e.target.closest(".port");
     if(port){
       if(port.dataset.port==="in") return;
@@ -2160,7 +2183,7 @@ function initDesigner(){
    FCF holds) rest until acted on. */
 const WF_TRANSIT=new Set(["intake","parse","screen","draft","cond"]);
 const WF_PUB_LS="hrportal_wf_published", APP_LS="hrportal_app_v1";
-function wfNodeLabel(n){ return (WF_TYPES[n.type]?WF_TYPES[n.type].label:n.type).replace(" 🔒",""); }
+function wfNodeLabel(n){ if(n.type==="cond") return "Condition · Fit ≥ "+(n.th!=null?n.th:75); return (WF_TYPES[n.type]?WF_TYPES[n.type].label:n.type).replace(" 🔒",""); }
 let WFPUB=(function(){ try{ const s=localStorage.getItem(WF_PUB_LS); if(s){ const o=JSON.parse(s); if(o&&o.nodes) return o; } }catch(e){}
   return Object.assign({version:1},wfDefault()); })();
 function wfPubSave(){ try{ localStorage.setItem(WF_PUB_LS,JSON.stringify(WFPUB)); }catch(e){} }
@@ -2183,7 +2206,7 @@ function engineAdvance(c){
     if(n.type==="reject"){ c.stage="rejected"; c.rejWhen=c.rejWhen||TODAY; c.rejReason=c.rejReason||"Routed to Reject by the workflow (AI fit "+fitScore(c)+" — below the published threshold)"; c.prevStageLabel=c.prevStageLabel||"Workflow"; candLog(c,"Workflow routed candidate to Reject & Log — "+c.rejReason); return; }
     if(WF_TRANSIT.has(n.type)){
       let port="out";
-      if(n.type==="cond") port=fitScore(c)>=75?"yes":"no";
+      if(n.type==="cond") port=fitScore(c)>=(n.th!=null?n.th:75)?"yes":"no";
       const nx=pubNext(n.id,port);
       if(!nx){ c.deadEnd=true; return; }
       c.nodeId=nx; c.deadEnd=false; continue;
