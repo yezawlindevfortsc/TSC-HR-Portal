@@ -911,7 +911,7 @@ function renderRecruitment(){
   const rejected=CANDIDATES.filter(c=>c.stage==="rejected");
   if(rejected.length){
     h+=`<details class="card" style="margin-top:14px"><summary style="cursor:pointer;font-weight:600;font-size:14px">✕ Rejected / declined <span style="font-family:var(--mono);font-size:11px;color:var(--slate-2);font-weight:400">${rejected.length} · records retained ≥1 yr (MOM defensibility)</span></summary>
-      <div style="margin-top:12px">`+tbl(["Candidate","Role","Stage reached","Reason","Date"],rejected.map(c=>[`<span data-act="detail" data-id="${c.id}" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px" title="View profile & activity log">${c.name}</span> <span class="mono" style="color:var(--slate-3)">${c.id}</span>`,c.role,c.prevStageLabel||(STAGES.find(s=>s[0]===c.prevStage)||["","—"])[1],c.rejReason||"—",c.rejWhen||TODAY]))+`</div></details>`;
+      <div style="margin-top:12px">`+tbl(["Candidate","Role","Stage reached","Reason","Date",""],rejected.map(c=>[`<span data-act="detail" data-id="${c.id}" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px" title="View profile & activity log">${c.name}</span> <span class="mono" style="color:var(--slate-3)">${c.id}</span>`,c.role,c.prevStageLabel||(STAGES.find(s=>s[0]===c.prevStage)||["","—"])[1],c.rejReason||"—",c.rejWhen||TODAY,`<button class="btn ghost" data-act="restore" data-id="${c.id}" style="padding:4px 10px;font-size:11px" title="Human override — puts the candidate back into the live pipeline; the rejection stays in the activity log">↩ Restore</button>`]))+`</div></details>`;
   }
   h+=`<p class="note">Auto-emails are simulated previews; Signed Employment Letters also appear in Documents history; offers are blocked while a role's FCF window is open. Candidates, hirers and workflows persist in this browser. <button class="btn ghost" id="resetDemo" style="padding:3px 10px;font-size:11px;margin-left:6px" title="Clears saved candidates, hirers and published workflow, restores demo data">Reset demo data</button></p>`;
   main.innerHTML=h;
@@ -1101,6 +1101,15 @@ function nodeAction(act,id){
     engineAdvance(c); saveAppState(); renderRecruitment(); return;
   }
   if(act==="advance"){ if(!c.nodeId||!pubNodeById(c.nodeId)){ engineEnter(c); saveAppState(); renderRecruitment(); } else candMoveNext(c); return; }
+  if(act==="restore"){
+    /* human override of a rejection — placed at the first pipeline stage, past any
+       automated gate that caused the rejection; the old rejection stays in the log */
+    const cols=wfPubCols(); if(!cols.length) return;
+    delete c.fit; /* recompute the score with current data */
+    c.stage="screening"; c.nodeId=cols[0].node.id; c.deadEnd=false; c.rejReason=""; c.rejWhen="";
+    candLog(c,`Restored to pipeline by ${(ROLES[role]||{}).name||"HR"} — earlier rejection overridden, placed at "${cols[0].label}" (AI fit recomputed: ${fitScore(c)})`);
+    saveAppState(); renderRecruitment(); return;
+  }
   if(act==="detail"){ candDetailModal(c); return; }
 }
 function rejectWithReason(c,title,defaultReason){
@@ -1283,11 +1292,15 @@ const ROLE_KEYWORDS={
   "M&E Coordinator":["m&e","shop drawing","testing","commissioning","mechanical","electrical"],
 };
 // Deterministic, explainable fit score — extracted skills + experience vs the role profile. No LLM.
+// Roles outside the library score against the generic construction-skills dictionary,
+// so a strong CV with a custom designation isn't stuck at the flat baseline.
 function fitScore(c){
   if(c.fit!=null) return c.fit;
-  const kws=ROLE_KEYWORDS[c.role]||[];
+  const kws=ROLE_KEYWORDS[c.role];
   const sk=((c.skills||"")+" "+(c.cvText||"")).toLowerCase();
-  const skillPct = (c.skills&&kws.length)? kws.filter(k=>sk.includes(k)).length/kws.length : 0.55;
+  let skillPct;
+  if(kws&&kws.length) skillPct=c.skills? kws.filter(k=>sk.includes(k)).length/kws.length : 0.55;
+  else skillPct=c.skills? Math.min(1,SKILL_DICT.filter(k=>sk.includes(k)).length/6) : 0.55;
   const ym=(""+(c.exp||"")).match(/\d+/); const yrs=ym?+ym[0]:4;
   const expFactor=Math.min(yrs,10)/10;
   let s=Math.round(skillPct*66 + expFactor*34);
