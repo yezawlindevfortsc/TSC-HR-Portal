@@ -831,17 +831,17 @@ function renderKnowledge(){
   let h=`<div class="page-head"><h1>? HR Knowledge Assistant</h1><p>${aiConfigured()?`Live answers via <b>${escHtml(aiLabel())}</b> — sources cited per answer. No personal data is involved.`:"Answers grounded in regulation and your SOPs — every answer cites its source. No personal data is involved."}</p></div>`;
   h+=`<div class="card" style="margin-bottom:16px;padding:12px 16px"><div style="font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--slate-2);margin-bottom:8px">Grounded in</div><div class="src" style="display:flex;flex-wrap:wrap;gap:6px">${KB_SOURCES.map(s=>`<span class="chip">📄 ${s}</span>`).join("")}</div></div>`;
   h+=`<div class="chat" id="chat"></div>`;
-  if(chatLog.length===0){
+  h+=`<div class="chat-input"><input id="chatIn" placeholder="Ask about MOM rules, the Employment Act, leave, levies, PDPA…" aria-label="Ask a question"><button class="btn" id="askBtn">Ask</button></div>`;
+  {
     const cats=[...new Set(KB.map(k=>k.cat))];
-    h+=`<div style="margin-top:8px"><div class="note" style="margin-bottom:8px;font-style:normal">Browse common questions:</div>`;
+    h+=`<div style="margin-top:14px"><div class="note" style="margin-bottom:8px;font-style:normal">Browse common questions${chatLog.length?" (curated demo answers)":""}:</div>`;
     cats.forEach(c=>{
       h+=`<div style="margin-bottom:11px"><div style="font-size:11px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--slate-2);margin-bottom:5px">${c}</div><div class="suggest">${KB.map((k,i)=>k.cat===c?`<button data-q="${i}">${k.q}</button>`:"").join("")}</div></div>`;
     });
     h+=`</div>`;
   }
-  h+=`<div class="chat-input"><input id="chatIn" placeholder="Ask about MOM rules, the Employment Act, leave, levies, PDPA…" aria-label="Ask a question"><button class="btn" id="askBtn">Ask</button></div>`;
   h+=aiConfigured()
-    ?`<p class="note">Typed questions are answered live by ${escHtml(aiLabel())} from its <b>general knowledge</b> — it does not yet read your actual SOP documents, so verify figures before relying on them. The production build retrieves and quotes the current source text (suggested questions below/above are curated demo answers). Guidance only — not legal advice.</p>`
+    ?`<p class="note">Typed questions are answered live by ${escHtml(aiLabel())} from its <b>general knowledge</b> — it does not yet read your actual SOP documents, so verify figures before relying on them. The production build retrieves and quotes the current source text (the suggested questions above are curated demo answers). Guidance only — not legal advice.</p>`
     :`<p class="note">Prototype answers are illustrative (keyword-matched demo). Connect the 🧠 AI reader key in Recruitment to enable live answers. The production assistant retrieves and quotes the current source text, and figures are verified against the source before being shown.</p>`;
   main.innerHTML=h;
   drawChat();
