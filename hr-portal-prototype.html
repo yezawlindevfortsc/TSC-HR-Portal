@@ -2153,7 +2153,13 @@ function initDesigner(){
       if(wfState.connecting){
         const t=document.elementFromPoint(e.clientX,e.clientY);
         const ip=t&&t.closest?t.closest(".port.in"):null;
-        if(ip) wfAddEdge(wfState.connecting.from,ip.closest(".wf-node").dataset.id);
+        /* forgiving drop: anywhere on a target node counts as its in-port */
+        let target=ip?ip.closest(".wf-node").dataset.id:null;
+        if(!target){
+          const nd=t&&t.closest?t.closest(".wf-node"):null;
+          if(nd&&nd.dataset.id!==wfState.connecting.from.n&&nd.querySelector(".port.in")) target=nd.dataset.id;
+        }
+        if(target) wfAddEdge(wfState.connecting.from,target);
         wfState.connecting=null; wfState.temp=null; wfRedraw();
       }
       if(wfState.dragging){ wfState.dragging=null; saveWF(); }
