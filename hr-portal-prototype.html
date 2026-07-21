@@ -891,7 +891,7 @@ function renderRecruitment(){
   const pubCols=wfPubCols();
   const atNode=t=>CANDIDATES.filter(c=>c.stage!=="rejected"&&!c.done&&(pubNodeById(c.nodeId)||{}).type===t).length;
   const doneN=CANDIDATES.filter(c=>c.done).length;
-  h+=`<p class="note" style="margin:0 0 12px;font-style:normal">This board is generated from your <b>published workflow v${WFPUB.version}</b> (${pubCols.length} stages, left-to-right from the canvas). Change it in ⚙ Workflow Designer and hit 🚀 Publish.</p>`;
+  h+=`<p class="note" style="margin:0 0 12px;font-style:normal">This board is generated from your <b>published workflow v${WFPUB.version}</b> (${pubCols.length} stages, in flow order from CV Intake). Change it in ⚙ Workflow Designer and hit 🚀 Publish.</p>`;
   h+=`<div class="grid g-kpi" style="margin-bottom:16px">
     <div class="card tile info"><div class="lab">In pipeline</div><div class="val">${CANDIDATES.filter(c=>c.stage!=="rejected"&&!c.done).length}</div><div class="sub">active candidates</div></div>
     <div class="card tile warn"><div class="lab">Awaiting hirer</div><div class="val">${atNode("hirer")}</div><div class="sub">with hiring managers</div></div>
@@ -2195,9 +2195,23 @@ let WFPUB=(function(){ try{ const s=localStorage.getItem(WF_PUB_LS); if(s){ cons
 function wfPubSave(){ try{ localStorage.setItem(WF_PUB_LS,JSON.stringify(WFPUB)); }catch(e){} }
 function pubNodeById(id){ return WFPUB.nodes.find(n=>n.id===id); }
 function wfPubCols(){
-  const cols=WFPUB.nodes.filter(n=>!WF_TRANSIT.has(n.type)&&n.type!=="reject").sort((a,b)=>a.x-b.x||a.y-b.y);
+  /* columns follow the FLOW of the published graph (breadth-first from Intake,
+     YES branches before NO), not the nodes' x-positions on the canvas */
+  const keep=n=>!WF_TRANSIT.has(n.type)&&n.type!=="reject";
+  const ordered=[], visited=new Set();
+  const queue=WFPUB.nodes.filter(n=>n.type==="intake").sort((a,b)=>a.x-b.x).map(n=>n.id);
+  const rank=p=>p==="yes"?0:(p==="no"?2:1);
+  while(queue.length){
+    const id=queue.shift(); if(visited.has(id)) continue; visited.add(id);
+    const n=pubNodeById(id); if(!n) continue;
+    if(keep(n)) ordered.push(n);
+    WFPUB.edges.filter(e=>e.from.n===id).sort((a,b)=>rank(a.from.port)-rank(b.from.port))
+      .forEach(e=>{ if(!visited.has(e.to)) queue.push(e.to); });
+  }
+  /* wait nodes not reachable from Intake still get columns, in canvas order, at the end */
+  WFPUB.nodes.filter(n=>keep(n)&&!visited.has(n.id)).sort((a,b)=>a.x-b.x||a.y-b.y).forEach(n=>ordered.push(n));
   const seen={};
-  return cols.map(n=>{ const base=wfNodeLabel(n); seen[base]=(seen[base]||0)+1; return {node:n,label:seen[base]>1?base+" ("+seen[base]+")":base}; });
+  return ordered.map(n=>{ const base=wfNodeLabel(n); seen[base]=(seen[base]||0)+1; return {node:n,label:seen[base]>1?base+" ("+seen[base]+")":base}; });
 }
 function pubNext(nodeId,port){
   let e=WFPUB.edges.find(x=>x.from.n===nodeId&&x.from.port===(port||"out"));
