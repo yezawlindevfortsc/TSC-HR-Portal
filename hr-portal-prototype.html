@@ -345,7 +345,7 @@ const NAVMETA = {
   compliance:{ico:"⚑",label:"Compliance Monitor"},
   recruitment:{ico:"👥",label:"Recruitment"},
   documents:{ico:"✎",label:"Documents"},
-  knowledge:{ico:"?",label:"Knowledge Assistant"},
+  knowledge:{ico:"💡",label:"Knowledge Assistant"},
   approvals:{ico:"✓",label:"Approvals"},
 };
 // HR-managed hirer list (editable in the Recruitment module)
@@ -869,7 +869,7 @@ async function kbAddDoc(file,errEl){
   renderKnowledge();
 }
 function renderKnowledge(){
-  let h=`<div class="page-head"><h1>? HR Knowledge Assistant</h1><p>${aiConfigured()?`Live answers via <b>${escHtml(aiLabel())}</b> — sources cited per answer. No personal data is involved.`:"Answers grounded in regulation and your SOPs — every answer cites its source. No personal data is involved."}</p></div>`;
+  let h=`<div class="page-head"><h1>💡 HR Knowledge Assistant</h1><p>${aiConfigured()?`Live answers via <b>${escHtml(aiLabel())}</b> — sources cited per answer. No personal data is involved.`:"Answers grounded in regulation and your SOPs — every answer cites its source. No personal data is involved."}</p></div>`;
   h+=`<div class="card" style="margin-bottom:16px;padding:12px 16px"><div style="font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--slate-2);margin-bottom:8px">Grounded in</div><div class="src" style="display:flex;flex-wrap:wrap;gap:6px">${KB_SOURCES.map(s=>`<span class="chip">📄 ${s}</span>`).join("")}${KB_DOCS.map(d=>`<span class="chip" title="Internal policy document — uploaded ${escHtml(d.added||"")}">📘 ${escHtml(d.name)}</span>`).join("")}</div></div>`;
   h+=`<details class="card" style="margin-bottom:16px" ${KB_DOCS.length?"":""}>
     <summary style="cursor:pointer;font-weight:600;font-size:14px">📘 Internal policy documents <span style="font-family:var(--mono);font-size:11px;color:var(--slate-2);font-weight:400">${KB_DOCS.length} uploaded · read by the assistant</span></summary>
