@@ -1180,9 +1180,22 @@ function nodeAction(act,id){
     const sel=document.getElementById("hsel-"+id); const h=HIRERS[sel?+sel.value:0];
     if(!h) return;
     c.score=fitScore(c); c.hirer=h.name; c.hirerEmail=h.email;
-    candLog(c,`Shortlist emailed to ${h.name} (fit score ${c.score}/100, secure one-time link)`);
-    showEmail(`${h.name} <${h.email}>`, "Shortlisted CV for review — "+c.role, ["Dear "+h.name+",",`HR has shortlisted ${c.name} for the ${c.role} role (${c.exp}).`,"Please review the attached CV and register your interest via the secure link below (no login required).","[ Secure one-time link ]","Regards, HR Department"],c);
-    candMoveNext(c); return;
+    (async()=>{
+      const cvLink=await cvShareLink(c); /* org-scoped view link when the CV is on SharePoint */
+      const cvLine=cvLink
+        ?`📄 Candidate's CV: <a href="${escHtml(cvLink)}" style="color:#2b46c4">${escHtml(c.cv||c.name+" — CV")}</a> <span style="color:#6d7789;font-size:12px">(view-only link, opens with your company account)</span>`
+        :`📄 Candidate's CV: <i>not filed to SharePoint — use "Open in mail app" and attach it manually.</i>`;
+      candLog(c,`Shortlist emailed to ${h.name} — CV ${cvLink?"linked (org view-only)":"NOT linked"}, response buttons included`);
+      showEmail(`${h.name} <${h.email}>`, "Shortlisted CV for review — "+c.role, [
+        "Dear "+h.name+",",
+        `HR has shortlisted ${c.name} for the ${c.role} role (${c.exp}).`,
+        cvLine,
+        "Please review the CV and click your response — it opens a pre-filled reply to HR; just press Send:",
+        hirerButtonsHTML(c),
+        "Regards, HR Department"],c);
+      candMoveNext(c);
+    })();
+    return;
   }
   if(act==="interested"){ candLog(c,`Hirer ${c.hirer||""} registered interest`.trim()); candMoveNext(c,"yes"); return; }
   if(act==="pass"){
@@ -1358,6 +1371,17 @@ function candDetailModal(c){
   if(lb) lb.onclick=()=>{ openModal(`<div style="background:var(--ink);color:#eaf1f8;padding:13px 18px"><b>Employment Letter — ${escHtml(c.name)}</b></div><div style="padding:16px 20px;overflow:auto">${offerLetterHTML(c,c.offer)}</div><div style="padding:12px 20px;text-align:right;border-top:1px solid var(--line-2)"><button class="btn" data-close>Close</button></div>`,620); };
 }
 function emailAddrOf(to){ const m=String(to).match(/<([^>]+)>/); return (m?m[1]:String(to)).trim(); }
+/* Interested / Pass buttons — each is a mailto link that opens a pre-filled reply to HR
+   (a one-click response updating the pipeline directly needs the Phase-0 backend). */
+function hirerButtonsHTML(c){
+  const hr=spCfg.lastUser||"";
+  const mk=(label,choice,color)=>{
+    const subj=encodeURIComponent(`Hirer response: ${choice} — ${c.name} (${c.id}) — ${c.role}`);
+    const body=encodeURIComponent(`My response for ${c.name} (${c.id}, ${c.role}): ${choice}\n\nComments (optional):\n`);
+    return `<td bgcolor="${color}" style="border-radius:8px"><a href="mailto:${encodeURIComponent(hr)}?subject=${subj}&body=${body}" style="display:inline-block;padding:10px 24px;color:#ffffff;text-decoration:none;font-weight:bold;font-family:Arial,Helvetica,sans-serif;font-size:14px">${label}</a></td>`;
+  };
+  return `<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:4px 0"><tr>${mk("✓ Interested","INTERESTED","#178254")}<td style="width:14px">&nbsp;</td>${mk("✗ Pass","PASS","#8a94a6")}</tr></table>`;
+}
 async function graphSendMail(addr,subject,html){
   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(addr)) throw new Error("No valid email address for this recipient ("+addr+") — add one to the record first.");
   const t=await spTokenFor(["Mail.Send"],true);
@@ -1947,7 +1971,7 @@ function addCandidateModal(){
       if(spConfigured()&&typeof msal!=="undefined"){
         rec.spStatus="uploading";
         spUpload(f,rec)
-          .then(j=>{ rec.spStatus="done"; rec.spUrl=j.webUrl; candLog(rec,"CV filed to SharePoint"); saveAppState(); })
+          .then(j=>{ rec.spStatus="done"; rec.spUrl=j.webUrl; rec.spItemId=j.id; rec.spDriveId=j.parentReference&&j.parentReference.driveId; candLog(rec,"CV filed to SharePoint"); saveAppState(); })
           .catch(err=>{ rec.spStatus="failed"; rec.spErr=String(err.message||err); candLog(rec,"SharePoint filing failed — "+String(err.message||err).slice(0,80)); saveAppState(); })
           .finally(()=>{ if(view==="recruitment"&&recruitTab==="candidates") renderRecruitment(); });
       }
@@ -2622,6 +2646,20 @@ async function spResolveFolder(interactive){
   if(!j.folder) throw new Error("That URL points to a file, not a folder — paste the folder's link.");
   spDrive={ driveId:j.parentReference.driveId, itemId:j.id, webUrl:j.webUrl, name:j.name };
   return spDrive;
+}
+/* View-only sharing link for a filed CV, scoped to the organisation — opens for any
+   signed-in company account (the hirer), dies when HR deletes the file (retention). */
+async function cvShareLink(c){
+  if(c.spDriveId&&c.spItemId&&typeof msal!=="undefined"&&spConfigured()){
+    try{
+      const t=await spTokenFor(["Files.ReadWrite.All"],false);
+      const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${c.spDriveId}/items/${c.spItemId}/createLink`,{
+        method:"POST",headers:{Authorization:"Bearer "+t,"content-type":"application/json"},
+        body:JSON.stringify({type:"view",scope:"organization"})});
+      if(r.ok){ const j=await r.json(); if(j.link&&j.link.webUrl) return j.link.webUrl; }
+    }catch(e){}
+  }
+  return c.spUrl||null;
 }
 function spCvFilename(file,rec){
   /* Naming convention: YYYYMMDD_Role_Name_Experience.ext */
