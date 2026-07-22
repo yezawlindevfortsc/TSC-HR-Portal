@@ -1023,7 +1023,7 @@ function renderRecruitment(){
     h+=`<details class="card" style="margin-top:14px"><summary style="cursor:pointer;font-weight:600;font-size:14px">✕ Rejected / declined <span style="font-family:var(--mono);font-size:11px;color:var(--slate-2);font-weight:400">${rejected.length} · records retained ≥1 yr (MOM defensibility)</span></summary>
       <div style="margin-top:12px">`+tbl(["Candidate","Role","Stage reached","Reason","Date",""],rejected.map(c=>[`<span data-act="detail" data-id="${c.id}" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px" title="View profile & activity log">${c.name}</span> <span class="mono" style="color:var(--slate-3)">${c.id}</span>`,c.role,c.prevStageLabel||(STAGES.find(s=>s[0]===c.prevStage)||["","—"])[1],c.rejReason||"—",c.rejWhen||TODAY,`<button class="btn ghost" data-act="restore" data-id="${c.id}" style="padding:4px 10px;font-size:11px" title="Human override — puts the candidate back into the live pipeline; the rejection stays in the activity log">↩ Restore</button>`]))+`</div></details>`;
   }
-  h+=`<p class="note">Auto-emails are simulated previews; Signed Employment Letters also appear in Documents history; offers are blocked while a role's FCF window is open. Candidates, hirers and workflows persist in this browser. <button class="btn ghost" id="resetDemo" style="padding:3px 10px;font-size:11px;margin-left:6px" title="Clears saved candidates, hirers and published workflow, restores demo data">Reset demo data</button></p>`;
+  h+=`<p class="note">Emails open for review first — send from your M365 mailbox (same sign-in as SharePoint) or via your mail app; Signed Employment Letters also appear in Documents history; offers are blocked while a role's FCF window is open. Candidates, hirers and workflows persist in this browser. <button class="btn ghost" id="resetDemo" style="padding:3px 10px;font-size:11px;margin-left:6px" title="Clears saved candidates, hirers and published workflow, restores demo data">Reset demo data</button></p>`;
   main.innerHTML=h;
   main.querySelectorAll("[data-act]").forEach(b=>b.onclick=()=>nodeAction(b.dataset.act,b.dataset.id));
   const add=document.getElementById("addHirer");
@@ -1096,7 +1096,7 @@ function recruitStatsHTML(){
     <div class="card tile warn"><div class="lab">Interviews</div><div class="val">${interviews}</div><div class="sub">in progress</div></div>
     <div class="card tile warn"><div class="lab">Offers open</div><div class="val">${offers}</div><div class="sub">awaiting outcome</div></div>
     <div class="card tile ok"><div class="lab">Hired</div><div class="val">${hired}</div><div class="sub">${convPct!=null?convPct+"% of decided":"letters recorded"}</div></div>
-    <div class="card tile info"><div class="lab">Avg AI fit</div><div class="val">${avgFit}</div><div class="sub">across all CVs</div></div>
+    <div class="card tile info"><div class="lab">Avg fit score</div><div class="val">${avgFit}</div><div class="sub">across all CVs</div></div>
   </div>
   <div class="grid g-2">
     <div class="card"><h3>Pipeline by stage <span class="count">${n} CVs</span></h3>${hBars(byStage)}</div>
@@ -1108,7 +1108,7 @@ function recruitStatsHTML(){
       <p class="note" style="margin-top:12px">${spConfigured()?"Filed as: YYYYMMDD_Role_Name_Experience":"Connect SharePoint in Candidates & Pipeline to start filing CVs automatically."}</p></div>
   </div>
   <div class="card" style="margin-top:16px"><h3>Interview &amp; offer status <span class="count">${statusRows.length} candidates at decision stages</span></h3>
-    ${statusRows.length?tbl(["Candidate","Role","AI fit","Hirer","Status","CV"],statusRows):`<p class="note">No candidates at interview or offer stage yet.</p>`}
+    ${statusRows.length?tbl(["Candidate","Role","Fit","Hirer","Status","CV"],statusRows):`<p class="note">No candidates at interview or offer stage yet.</p>`}
   </div>
   <p class="note">Live view driven by your published workflow v${WFPUB.version} — data persists in this browser. In production these statistics come from the shared database and add time-to-hire and recruitment-cost trends per the job scopes.</p>`;
 }
@@ -1123,7 +1123,7 @@ function candCard(c,rank){
   else if(t==="emailHirer"){
     if(HIRERS.length===0) action=`<div class="pill warn" style="width:100%;justify-content:center">Add a hirer first</div>`;
     else action=`<select id="hsel-${c.id}" aria-label="Select hirer" style="width:100%;font-size:12px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;margin-bottom:6px">${HIRERS.map((x,i)=>`<option value="${i}" ${ROLE_HIRER[c.role]===x.name?'selected':''}>${x.name} · ${x.dept||''}</option>`).join("")}</select>
-      <button class="btn" data-act="sendHirer" data-id="${c.id}" style="${bs}">AI screen &amp; email hirer ▶</button>`;
+      <button class="btn" data-act="sendHirer" data-id="${c.id}" style="${bs}">Screen &amp; email hirer ▶</button>`;
   }
   else if(t==="hirer") action=`<div style="font-size:10px;color:var(--slate-3);font-family:var(--mono);margin-bottom:5px">CV emailed via secure link — record hirer's response:</div><div style="display:flex;gap:6px"><button class="btn ok" data-act="interested" data-id="${c.id}" style="flex:1;font-size:12px;padding:7px">✓ Hirer interested</button><button class="btn ghost" data-act="pass" data-id="${c.id}" style="font-size:12px;padding:7px">Passed</button></div>`;
   else if(t==="review"||t==="doa") action=`<div style="font-size:10px;color:var(--slate-3);font-family:var(--mono);margin-bottom:5px">${t==="doa"?"Approval (DOA) required:":"Human review required:"}</div><div style="display:flex;gap:6px"><button class="btn ok" data-act="approve" data-id="${c.id}" style="flex:1;font-size:12px;padding:7px">✓ Approve</button><button class="btn ghost" data-act="rejectGate" data-id="${c.id}" style="font-size:12px;padding:7px">✕ Reject</button></div>`;
@@ -1141,7 +1141,7 @@ function candCard(c,rank){
   else if(t==="draft"||t==="parse"||t==="screen") action=`<button class="btn ghost" data-act="advance" data-id="${c.id}" style="${bs}">Advance ▶</button>`;
   else action=`<button class="btn ghost" data-act="advance" data-id="${c.id}" style="${bs}">Advance ▶</button>`;
   const meta=[];
-  if(c.score!=null&&t!=="emailHirer") meta.push("AI fit "+c.score);
+  if(c.score!=null&&t!=="emailHirer") meta.push("fit "+c.score);
   if(c.source&&t==="emailHirer") meta.push(c.source.split(" · ")[0]);
   if(c.spUrl) meta.push(`<a href="${escHtml(c.spUrl)}" target="_blank" rel="noopener" style="color:var(--steel);text-decoration:none">📁 SharePoint</a>`);
   else if(c.spStatus==="uploading") meta.push("📁 uploading…");
@@ -1154,7 +1154,7 @@ function candCard(c,rank){
   if(t==="emailHirer"){
     const fs=fitScore(c), col=fs>=85?'var(--ok)':fs>=70?'var(--warn)':'var(--slate-3)';
     fitBlock=`<div style="margin:7px 0 8px">
-      <div style="display:flex;justify-content:space-between;font-size:10.5px;font-family:var(--mono);color:var(--slate-2);margin-bottom:3px"><span>${rank?'#'+rank+' · ':''}AI fit score</span><span style="color:${col};font-weight:700">${fs}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:10.5px;font-family:var(--mono);color:var(--slate-2);margin-bottom:3px"><span>${rank?'#'+rank+' · ':''}Fit score</span><span style="color:${col};font-weight:700">${fs}</span></div>
       <div style="height:5px;background:var(--line-2);border-radius:3px;overflow:hidden"><div style="height:100%;width:${fs}%;background:${col}"></div></div></div>`;
     if(c.skills) skillLine=`<div style="font-size:10.5px;color:var(--slate-3);line-height:1.4;margin-bottom:8px">${c.skills}</div>`;
   }
@@ -1180,8 +1180,8 @@ function nodeAction(act,id){
     const sel=document.getElementById("hsel-"+id); const h=HIRERS[sel?+sel.value:0];
     if(!h) return;
     c.score=fitScore(c); c.hirer=h.name; c.hirerEmail=h.email;
-    candLog(c,`Shortlist emailed to ${h.name} (AI fit ${c.score}/100, secure one-time link)`);
-    showEmail(`${h.name} <${h.email}>`, "Shortlisted CV for review — "+c.role, ["Dear "+h.name+",",`Our AI screen rated ${c.name} a ${c.score}/100 fit for the ${c.role} role (${c.exp}).`,"Please review the attached CV and register your interest via the secure link below (no login required).","[ Secure one-time link ]","Regards, HR Department"]);
+    candLog(c,`Shortlist emailed to ${h.name} (fit score ${c.score}/100, secure one-time link)`);
+    showEmail(`${h.name} <${h.email}>`, "Shortlisted CV for review — "+c.role, ["Dear "+h.name+",",`HR has shortlisted ${c.name} for the ${c.role} role (${c.exp}). Screening fit score: ${c.score}/100 (rule-based skills &amp; experience match).`,"Please review the attached CV and register your interest via the secure link below (no login required).","[ Secure one-time link ]","Regards, HR Department"],c);
     candMoveNext(c); return;
   }
   if(act==="interested"){ candLog(c,`Hirer ${c.hirer||""} registered interest`.trim()); candMoveNext(c,"yes"); return; }
@@ -1217,7 +1217,7 @@ function nodeAction(act,id){
     const cols=wfPubCols(); if(!cols.length) return;
     delete c.fit; /* recompute the score with current data */
     c.stage="screening"; c.nodeId=cols[0].node.id; c.deadEnd=false; c.rejReason=""; c.rejWhen="";
-    candLog(c,`Restored to pipeline by ${(ROLES[role]||{}).name||"HR"} — earlier rejection overridden, placed at "${cols[0].label}" (AI fit recomputed: ${fitScore(c)})`);
+    candLog(c,`Restored to pipeline by ${(ROLES[role]||{}).name||"HR"} — earlier rejection overridden, placed at "${cols[0].label}" (fit score recomputed: ${fitScore(c)})`);
     saveAppState(); renderRecruitment(); return;
   }
   if(act==="detail"){ candDetailModal(c); return; }
@@ -1262,7 +1262,7 @@ function interviewModal(c){
     c.invited=true;
     candLog(c,`Interview invite sent — ${fmtDateInput(date)} ${time}, ${c.interview.mode}${c.interview.interviewer?", with "+c.interview.interviewer:""}`);
     m.close();
-    showEmail(c.name+" <"+(c.email||"candidate@email")+">", "Interview Invitation — "+c.role, ["Dear "+c.name+",",`Thank you for your application for the ${c.role} position. We are pleased to invite you to an interview:`,`<b>${fmtDateInput(date)}, ${time}</b> · ${escHtml(c.interview.mode)}<br>${escHtml(c.interview.loc)}${c.interview.interviewer?`<br>You will meet: ${escHtml(c.interview.interviewer)}`:""}`,"Kindly reply to confirm your availability, or propose an alternative slot.","Regards, HR Department"]);
+    showEmail(c.name+" <"+(c.email||"candidate@email")+">", "Interview Invitation — "+c.role, ["Dear "+c.name+",",`Thank you for your application for the ${c.role} position. We are pleased to invite you to an interview:`,`<b>${fmtDateInput(date)}, ${time}</b> · ${escHtml(c.interview.mode)}<br>${escHtml(c.interview.loc)}${c.interview.interviewer?`<br>You will meet: ${escHtml(c.interview.interviewer)}`:""}`,"Kindly reply to confirm your availability, or propose an alternative slot.","Regards, HR Department"],c);
     candMoveNext(c);
   };
 }
@@ -1322,7 +1322,7 @@ function offerModal(c){
       c.offerSent=true; c.offer=o2;
       candLog(c,`Offer sent — ${fmtSGD(o2.salary)}/mo, start ${fmtDateInput(o2.start)}, probation ${o2.probation} mths`);
       m.close();
-      showEmail(c.name+" <"+(c.email||"candidate@email")+">", "Offer of Employment — "+c.role, ["Dear "+c.name+",",`We are pleased to offer you the position of <b>${escHtml(c.role)}</b> commencing <b>${fmtDateInput(o2.start)}</b>. Your formal Employment Letter is attached for your review.`,"Please sign and return the Employment Letter to confirm your acceptance.","Regards, HR Department"]);
+      showEmail(c.name+" <"+(c.email||"candidate@email")+">", "Offer of Employment — "+c.role, ["Dear "+c.name+",",`We are pleased to offer you the position of <b>${escHtml(c.role)}</b> commencing <b>${fmtDateInput(o2.start)}</b>. Your formal Employment Letter is attached for your review.`,"Please sign and return the Employment Letter to confirm your acceptance.","Regards, HR Department"],c);
       candMoveNext(c);
     };
   };
@@ -1339,7 +1339,7 @@ function candDetailModal(c){
   const m=openModal(`
     <div style="background:var(--ink);color:#eaf1f8;padding:13px 18px;display:flex;align-items:center;gap:8px"><span>👤</span><b>${escHtml(c.name)}</b><span style="font-family:var(--mono);font-size:10px;color:#9fb6cc">${c.id}</span><span style="margin-left:auto">${status}</span></div>
     <div style="padding:16px 20px;overflow:auto">
-      ${row("Role",escHtml(c.role||"—"))}${row("Experience",escHtml(c.exp||""))}${row("AI fit",`<span class="num">${fitScore(c)}</span>/100${c.aiRead?" · 🧠 CV read by AI":""}`)}
+      ${row("Role",escHtml(c.role||"—"))}${row("Experience",escHtml(c.exp||""))}${row("Fit score",`<span class="num">${fitScore(c)}</span>/100 · rule-based${c.aiRead?" · 🧠 CV read by AI":""}`)}
       ${row("Contact",[c.email&&`<span class="mono">${escHtml(c.email)}</span>`,c.phone&&escHtml(c.phone)].filter(Boolean).join(" · "))}
       ${row("DOB · Age",c.dob?escHtml(c.dob)+(c.age!=null?` · <b>${c.age}</b> years old`:""):"")}
       ${row("Education",[[c.eduLevel,c.faculty].filter(Boolean).join(" — "),c.education].filter(Boolean).map(x=>escHtml(x)).join("<br>"))}
@@ -1357,19 +1357,57 @@ function candDetailModal(c){
   const lb=m.ov.querySelector("#cdLetter");
   if(lb) lb.onclick=()=>{ openModal(`<div style="background:var(--ink);color:#eaf1f8;padding:13px 18px"><b>Employment Letter — ${escHtml(c.name)}</b></div><div style="padding:16px 20px;overflow:auto">${offerLetterHTML(c,c.offer)}</div><div style="padding:12px 20px;text-align:right;border-top:1px solid var(--line-2)"><button class="btn" data-close>Close</button></div>`,620); };
 }
-function showEmail(to,subject,lines){
+function emailAddrOf(to){ const m=String(to).match(/<([^>]+)>/); return (m?m[1]:String(to)).trim(); }
+async function graphSendMail(addr,subject,html){
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(addr)) throw new Error("No valid email address for this recipient ("+addr+") — add one to the record first.");
+  const t=await spTokenFor(["Mail.Send"],true);
+  const r=await fetch("https://graph.microsoft.com/v1.0/me/sendMail",{ method:"POST",
+    headers:{ Authorization:"Bearer "+t, "content-type":"application/json" },
+    body:JSON.stringify({ message:{ subject, toRecipients:[{emailAddress:{address:addr}}], body:{contentType:"HTML",content:html} }, saveToSentItems:true }) });
+  if(!r.ok) throw new Error("Send failed (HTTP "+r.status+"): "+(await r.text()).slice(0,140));
+}
+/* Review-and-send: nothing goes out without the HR user pressing Send (human-in-the-loop).
+   Real sending uses the same M365 sign-in as SharePoint (Graph Mail.Send, from the user's
+   own mailbox); "Open in mail app" pre-fills the default mail client as a fallback. */
+function showEmail(to,subject,lines,cand){
+  const addr=emailAddrOf(to);
+  const canM365=spConfigured()&&typeof msal!=="undefined";
+  const htmlBody=lines.map(l=>`<p style="margin:0 0 10px">${l}</p>`).join("");
+  const textBody=lines.map(l=>String(l).replace(/<br\s*\/?>/gi,"\n").replace(/<[^>]+>/g,"")).join("\n\n");
   const ov=document.createElement("div");
   ov.style.cssText="position:fixed;inset:0;background:rgba(20,32,46,.55);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px";
-  ov.innerHTML=`<div style="background:#fff;border-radius:12px;max-width:540px;width:100%;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35)">
-    <div style="background:var(--ink);color:#eaf1f8;padding:13px 18px;display:flex;align-items:center;gap:8px"><span>✉</span><b>Auto-email sent</b><span style="margin-left:auto;font-family:var(--mono);font-size:10px;color:#9fb6cc;text-transform:uppercase;letter-spacing:.08em">simulated</span></div>
+  ov.innerHTML=`<div style="background:#fff;border-radius:12px;max-width:560px;width:100%;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35)">
+    <div style="background:var(--ink);color:#eaf1f8;padding:13px 18px;display:flex;align-items:center;gap:8px"><span>✉</span><b>Email — review before sending</b><span id="emBadge" style="margin-left:auto;font-family:var(--mono);font-size:10px;color:#9fb6cc;text-transform:uppercase;letter-spacing:.08em">${canM365?"ready to send":"preview"}</span></div>
     <div style="padding:18px 20px">
-      <div style="font-size:12px;color:var(--slate-2)"><b>To:</b> ${to}</div>
-      <div style="font-size:12px;color:var(--slate-2);margin:4px 0 14px;padding-bottom:12px;border-bottom:1px solid var(--line-2)"><b>Subject:</b> ${subject}</div>
-      <div style="font-size:13.5px;line-height:1.65">${lines.map(l=>`<p style="margin:0 0 10px">${l}</p>`).join("")}</div>
+      <div style="font-size:12px;color:var(--slate-2)"><b>To:</b> ${escHtml(String(to))}</div>
+      <div style="font-size:12px;color:var(--slate-2);margin:4px 0 14px;padding-bottom:12px;border-bottom:1px solid var(--line-2)"><b>Subject:</b> ${escHtml(subject)}</div>
+      <div style="font-size:13.5px;line-height:1.65">${htmlBody}</div>
+      <div id="emStatus" class="note" style="display:none;margin-top:12px;font-style:normal"></div>
     </div>
-    <div style="padding:0 20px 18px;text-align:right"><button class="btn" id="emClose">Close</button></div>
+    <div style="padding:0 20px 18px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+      ${canM365?`<button class="btn ok" id="emSend">✉ Send from my mailbox (M365)</button>`:""}
+      <button class="btn ghost" id="emMailto" title="Opens your mail app with this email pre-filled">Open in mail app</button>
+      <button class="btn" id="emClose">Close</button>
+    </div>
   </div>`;
   document.body.appendChild(ov);
+  const status=(t,err)=>{ const el=ov.querySelector("#emStatus"); el.textContent=t; el.style.display="block"; el.style.color=err?"var(--crit)":"var(--ok)"; };
+  const send=ov.querySelector("#emSend");
+  if(send) send.onclick=async()=>{
+    send.disabled=true; send.textContent="Sending…";
+    try{
+      await graphSendMail(addr,subject,htmlBody);
+      status("✓ Sent from your mailbox to "+addr+" (saved to your Sent Items).");
+      ov.querySelector("#emBadge").textContent="sent";
+      send.remove(); const mt=ov.querySelector("#emMailto"); if(mt) mt.remove();
+      if(cand){ candLog(cand,`Email sent via M365 — "${subject}" to ${addr}`); saveAppState(); }
+    }catch(e){ status(String(e.message||e),true); send.disabled=false; send.textContent="✉ Send from my mailbox (M365)"; }
+  };
+  ov.querySelector("#emMailto").onclick=()=>{
+    location.href="mailto:"+encodeURIComponent(addr)+"?subject="+encodeURIComponent(subject)+"&body="+encodeURIComponent(textBody);
+    if(cand){ candLog(cand,`Email opened in mail app — "${subject}"`); saveAppState(); }
+    status("Opened in your mail app — review and send it from there.");
+  };
   ov.querySelector("#emClose").onclick=()=>ov.remove();
   ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
 }
@@ -2193,7 +2231,7 @@ function condConfigModal(id){
   const m=openModal(`
     <div style="background:var(--ink);color:#eaf1f8;padding:13px 18px;display:flex;align-items:center;gap:8px"><span>◆</span><b>Condition — fit score threshold</b></div>
     <div style="padding:18px 20px">
-      <p style="margin:0 0 12px;font-size:12.5px;color:var(--slate-2)">Candidates with an AI fit score <b>at or above</b> this number take the green YES branch; below it, the red NO branch. The comparison is deterministic code — no AI in the decision.</p>
+      <p style="margin:0 0 12px;font-size:12.5px;color:var(--slate-2)">Candidates with a fit score <b>at or above</b> this number take the green YES branch; below it, the red NO branch. The score and comparison are deterministic code — no AI in the decision.</p>
       <div class="field"><label>Threshold (0–98)</label><input id="cthVal" type="number" min="0" max="98" step="1" value="${n.th!=null?n.th:75}"></div>
       <div id="cthErr" class="note" style="color:var(--crit);display:none"></div>
     </div>
@@ -2331,7 +2369,7 @@ function engineAdvance(c){
   while(guard++<40){
     const n=pubNodeById(c.nodeId);
     if(!n){ c.deadEnd=true; return; }
-    if(n.type==="reject"){ c.stage="rejected"; c.rejWhen=c.rejWhen||TODAY; c.rejReason=c.rejReason||"Routed to Reject by the workflow (AI fit "+fitScore(c)+" — below the published threshold)"; c.prevStageLabel=c.prevStageLabel||"Workflow"; candLog(c,"Workflow routed candidate to Reject & Log — "+c.rejReason); return; }
+    if(n.type==="reject"){ c.stage="rejected"; c.rejWhen=c.rejWhen||TODAY; c.rejReason=c.rejReason||"Routed to Reject by the workflow (fit score "+fitScore(c)+" — below the published threshold)"; c.prevStageLabel=c.prevStageLabel||"Workflow"; candLog(c,"Workflow routed candidate to Reject & Log — "+c.rejReason); return; }
     if(WF_TRANSIT.has(n.type)){
       let port="out";
       if(n.type==="cond") port=fitScore(c)>=(n.th!=null?n.th:75)?"yes":"no";
@@ -2566,12 +2604,13 @@ async function spSignIn(){
   spCfg.lastUser=res.account.username; spSave();
   return res.account;
 }
-async function spToken(interactive){
+async function spToken(interactive){ return spTokenFor(["Files.ReadWrite.All"],interactive); }
+async function spTokenFor(scopes,interactive){
   const pca=await spEnsure();
   const acct=pca.getAllAccounts()[0];
-  if(!acct){ if(interactive) return (await spSignIn(), spToken(false)); throw new Error("Not signed in to Microsoft 365 — open 📁 SharePoint settings and sign in."); }
-  try{ const r=await pca.acquireTokenSilent({ scopes:["Files.ReadWrite.All"], account:acct }); return r.accessToken; }
-  catch(e){ if(interactive){ const r=await pca.acquireTokenPopup({ scopes:["Files.ReadWrite.All"] }); return r.accessToken; } throw e; }
+  if(!acct){ if(interactive) return (await spSignIn(), spTokenFor(scopes,false)); throw new Error("Not signed in to Microsoft 365 — open 📁 SharePoint settings and sign in."); }
+  try{ const r=await pca.acquireTokenSilent({ scopes, account:acct }); return r.accessToken; }
+  catch(e){ if(interactive){ const r=await pca.acquireTokenPopup({ scopes }); return r.accessToken; } throw e; }
 }
 async function spResolveFolder(interactive){
   if(spDrive) return spDrive;
