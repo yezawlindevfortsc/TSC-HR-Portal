@@ -1254,7 +1254,7 @@ function nodeAction(act,id){
         cvLine,
         "Please review the CV and click your response — it opens a pre-filled reply to HR; just press Send:",
         hirerButtonsHTML(c),
-        "Regards, HR Department"],c);
+        "Regards, HR Department"],c,a=>{ h.email=a; c.hirerEmail=a; candLog(c,`Hirer email address corrected to ${a}`); saveAppState(); });
       candMoveNext(c);
     })();
     return;
@@ -1333,7 +1333,7 @@ function interviewModal(c){
     c.invited=true;
     candLog(c,`Interview invite sent — ${fmtDateInput(date)} ${time}, ${c.interview.mode}${c.interview.interviewer?", with "+c.interview.interviewer:""}`);
     m.close();
-    showEmail(c.name+" <"+(c.email||"candidate@email")+">", "Interview Invitation — "+c.role, ["Dear "+c.name+",",`Thank you for your application for the ${c.role} position. We are pleased to invite you to an interview:`,`<b>${fmtDateInput(date)}, ${time}</b> · ${escHtml(c.interview.mode)}<br>${escHtml(c.interview.loc)}${c.interview.interviewer?`<br>You will meet: ${escHtml(c.interview.interviewer)}`:""}`,"Kindly reply to confirm your availability, or propose an alternative slot.","Regards, HR Department"],c);
+    showEmail(c.name+" <"+(c.email||"candidate@email")+">", "Interview Invitation — "+c.role, ["Dear "+c.name+",",`Thank you for your application for the ${c.role} position. We are pleased to invite you to an interview:`,`<b>${fmtDateInput(date)}, ${time}</b> · ${escHtml(c.interview.mode)}<br>${escHtml(c.interview.loc)}${c.interview.interviewer?`<br>You will meet: ${escHtml(c.interview.interviewer)}`:""}`,"Kindly reply to confirm your availability, or propose an alternative slot.","Regards, HR Department"],c,a=>{ c.email=a; candLog(c,`Candidate email address recorded: ${a}`); saveAppState(); });
     candMoveNext(c);
   };
 }
@@ -1393,7 +1393,7 @@ function offerModal(c){
       c.offerSent=true; c.offer=o2;
       candLog(c,`Offer sent — ${fmtSGD(o2.salary)}/mo, start ${fmtDateInput(o2.start)}, probation ${o2.probation} mths`);
       m.close();
-      showEmail(c.name+" <"+(c.email||"candidate@email")+">", "Offer of Employment — "+c.role, ["Dear "+c.name+",",`We are pleased to offer you the position of <b>${escHtml(c.role)}</b> commencing <b>${fmtDateInput(o2.start)}</b>. Your formal Employment Letter is attached for your review.`,"Please sign and return the Employment Letter to confirm your acceptance.","Regards, HR Department"],c);
+      showEmail(c.name+" <"+(c.email||"candidate@email")+">", "Offer of Employment — "+c.role, ["Dear "+c.name+",",`We are pleased to offer you the position of <b>${escHtml(c.role)}</b> commencing <b>${fmtDateInput(o2.start)}</b>. Your formal Employment Letter is attached for your review.`,"Please sign and return the Employment Letter to confirm your acceptance.","Regards, HR Department"],c,a=>{ c.email=a; candLog(c,`Candidate email address recorded: ${a}`); saveAppState(); });
       candMoveNext(c);
     };
   };
@@ -1451,8 +1451,10 @@ async function graphSendMail(addr,subject,html){
 /* Review-and-send: nothing goes out without the HR user pressing Send (human-in-the-loop).
    Real sending uses the same M365 sign-in as SharePoint (Graph Mail.Send, from the user's
    own mailbox); "Open in mail app" pre-fills the default mail client as a fallback. */
-function showEmail(to,subject,lines,cand){
-  const addr=emailAddrOf(to);
+function showEmail(to,subject,lines,cand,saveAddr){
+  const addr0=emailAddrOf(to);
+  const validRx=/^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+  const nameOnly=String(to).replace(/<[^>]*>/,"").trim();
   const canM365=spConfigured()&&typeof msal!=="undefined";
   const htmlBody=lines.map(l=>`<p style="margin:0 0 10px">${l}</p>`).join("");
   const textBody=lines.map(l=>String(l).replace(/<br\s*\/?>/gi,"\n").replace(/<[^>]+>/g,"")).join("\n\n");
@@ -1461,8 +1463,11 @@ function showEmail(to,subject,lines,cand){
   ov.innerHTML=`<div style="background:#fff;border-radius:12px;max-width:560px;width:100%;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35)">
     <div style="background:var(--ink);color:#eaf1f8;padding:13px 18px;display:flex;align-items:center;gap:8px"><span>✉</span><b>Email — review before sending</b><span id="emBadge" style="margin-left:auto;font-family:var(--mono);font-size:10px;color:#9fb6cc;text-transform:uppercase;letter-spacing:.08em">${canM365?"ready to send":"preview"}</span></div>
     <div style="padding:18px 20px">
-      <div style="font-size:12px;color:var(--slate-2)"><b>To:</b> ${escHtml(String(to))}</div>
-      <div style="font-size:12px;color:var(--slate-2);margin:4px 0 14px;padding-bottom:12px;border-bottom:1px solid var(--line-2)"><b>Subject:</b> ${escHtml(subject)}</div>
+      <div style="font-size:12px;color:var(--slate-2);display:flex;align-items:center;gap:6px;flex-wrap:wrap"><b>To:</b> ${escHtml(nameOnly)}
+        <input id="emTo" value="${validRx.test(addr0)?escHtml(addr0):""}" placeholder="type email address…" style="flex:1;min-width:200px;font-family:var(--mono);font-size:12px;padding:5px 9px;border:1px solid ${validRx.test(addr0)?"var(--line)":"var(--warn)"};border-radius:7px" aria-label="Recipient email address">
+      </div>
+      ${validRx.test(addr0)?"":`<div style="font-size:11px;color:var(--warn);margin-top:4px">No email address on record — type it here; it will be saved to the record when you send.</div>`}
+      <div style="font-size:12px;color:var(--slate-2);margin:8px 0 14px;padding-bottom:12px;border-bottom:1px solid var(--line-2)"><b>Subject:</b> ${escHtml(subject)}</div>
       <div style="font-size:13.5px;line-height:1.65">${htmlBody}</div>
       <div id="emStatus" class="note" style="display:none;margin-top:12px;font-style:normal"></div>
     </div>
@@ -1474,20 +1479,29 @@ function showEmail(to,subject,lines,cand){
   </div>`;
   document.body.appendChild(ov);
   const status=(t,err)=>{ const el=ov.querySelector("#emStatus"); el.textContent=t; el.style.display="block"; el.style.color=err?"var(--crit)":"var(--ok)"; };
+  const getAddr=()=>{
+    const a=ov.querySelector("#emTo").value.trim();
+    if(!validRx.test(a)){ status("Type a valid email address in the To field first.",true); return null; }
+    if(a!==addr0&&saveAddr) saveAddr(a); /* persist the typed address back to the record */
+    return a;
+  };
   const send=ov.querySelector("#emSend");
   if(send) send.onclick=async()=>{
+    const a=getAddr(); if(!a) return;
     send.disabled=true; send.textContent="Sending…";
     try{
-      await graphSendMail(addr,subject,htmlBody);
-      status("✓ Sent from your mailbox to "+addr+" (saved to your Sent Items).");
+      await graphSendMail(a,subject,htmlBody);
+      status("✓ Sent from your mailbox to "+a+" (saved to your Sent Items).");
       ov.querySelector("#emBadge").textContent="sent";
       send.remove(); const mt=ov.querySelector("#emMailto"); if(mt) mt.remove();
-      if(cand){ candLog(cand,`Email sent via M365 — "${subject}" to ${addr}`); saveAppState(); }
+      ov.querySelector("#emTo").disabled=true;
+      if(cand){ candLog(cand,`Email sent via M365 — "${subject}" to ${a}`); saveAppState(); }
     }catch(e){ status(String(e.message||e),true); send.disabled=false; send.textContent="✉ Send from my mailbox (M365)"; }
   };
   ov.querySelector("#emMailto").onclick=()=>{
-    location.href="mailto:"+encodeURIComponent(addr)+"?subject="+encodeURIComponent(subject)+"&body="+encodeURIComponent(textBody);
-    if(cand){ candLog(cand,`Email opened in mail app — "${subject}"`); saveAppState(); }
+    const a=getAddr(); if(!a) return;
+    location.href="mailto:"+encodeURIComponent(a)+"?subject="+encodeURIComponent(subject)+"&body="+encodeURIComponent(textBody);
+    if(cand){ candLog(cand,`Email opened in mail app — "${subject}" to ${a}`); saveAppState(); }
     status("Opened in your mail app — review and send it from there.");
   };
   ov.querySelector("#emClose").onclick=()=>ov.remove();
