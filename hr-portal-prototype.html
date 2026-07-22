@@ -1181,7 +1181,7 @@ function nodeAction(act,id){
     if(!h) return;
     c.score=fitScore(c); c.hirer=h.name; c.hirerEmail=h.email;
     candLog(c,`Shortlist emailed to ${h.name} (fit score ${c.score}/100, secure one-time link)`);
-    showEmail(`${h.name} <${h.email}>`, "Shortlisted CV for review — "+c.role, ["Dear "+h.name+",",`HR has shortlisted ${c.name} for the ${c.role} role (${c.exp}). Screening fit score: ${c.score}/100 (rule-based skills &amp; experience match).`,"Please review the attached CV and register your interest via the secure link below (no login required).","[ Secure one-time link ]","Regards, HR Department"],c);
+    showEmail(`${h.name} <${h.email}>`, "Shortlisted CV for review — "+c.role, ["Dear "+h.name+",",`HR has shortlisted ${c.name} for the ${c.role} role (${c.exp}).`,"Please review the attached CV and register your interest via the secure link below (no login required).","[ Secure one-time link ]","Regards, HR Department"],c);
     candMoveNext(c); return;
   }
   if(act==="interested"){ candLog(c,`Hirer ${c.hirer||""} registered interest`.trim()); candMoveNext(c,"yes"); return; }
