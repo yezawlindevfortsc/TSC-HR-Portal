@@ -1262,7 +1262,7 @@ function interviewModal(c){
       <div style="display:flex;gap:10px"><div class="field" style="flex:1"><label>Date *</label><input id="ivDate" type="date" value="${iv.date||defDate}"></div>
       <div class="field" style="flex:1"><label>Time *</label><input id="ivTime" type="time" value="${iv.time||"10:00"}"></div></div>
       <div class="field"><label>Format</label><select id="ivMode"><option ${iv.mode==="In person"?"selected":""}>In person</option><option ${iv.mode==="Video call (Teams)"?"selected":""}>Video call (Teams)</option></select></div>
-      <div class="field"><label>Venue / link</label><input id="ivLoc" value="${escHtml(iv.loc||"Head office — Level 3 meeting room")}"></div>
+      <div class="field"><label>Venue / link</label><input id="ivLoc" value="${escHtml(iv.loc||"Tiong Seng HQ — 30A Kallang Pl, #04-01 to #04-11, Singapore 339213")}"></div>
       <div class="field"><label>Interviewer(s)</label><input id="ivWho" value="${escHtml(iv.interviewer||c.hirer||"")}" placeholder="e.g. hiring manager + HR"></div>
       <div id="ivErr" class="note" style="color:var(--crit);display:none"></div>
     </div>
