@@ -1274,12 +1274,7 @@ function nodeAction(act,id){
     if(fcfBlock(c.role)) return; /* FCF gate — no offers inside the advertising window */
     offerModal(c); return;
   }
-  if(act==="sign"){
-    c.done=true; c.letterRecorded=TODAY;
-    candLog(c,"Signed Employment Letter recorded — HIRED");
-    docHistory.push({id:++docSeq,tpl:"employment",tplLabel:"Employment Letter",empId:c.id,empName:c.name,when:TODAY,status:"Signed",source:"Recruitment"});
-    saveAppState(); renderRecruitment(); return;
-  }
+  if(act==="sign"){ signModal(c); return; }
   if(act==="fcfAd"){ fcfModal(c.role,()=>renderRecruitment()); return; }
   if(act==="advance"){ if(!c.nodeId||!pubNodeById(c.nodeId)){ engineEnter(c); saveAppState(); renderRecruitment(); } else candMoveNext(c); return; }
   if(act==="restore"){
@@ -1340,9 +1335,65 @@ function interviewModal(c){
 /* ---- Offer terms + Employment Letter — deterministic template, no LLM in
         statutory/financial content (design principle #3) ---- */
 function fmtSGD(n){ return "S$ "+(+n).toLocaleString("en-SG"); }
+/* ---- Employment Letter as a real PDF (deterministic, code-built — no AI, no libraries) ---- */
+function offerLetterLines(c,o){
+  return [
+    "TIONG SENG CONTRACTORS (PTE) LTD",
+    "30A Kallang Pl, #04-01 to #04-11, Singapore 339213","",
+    TODAY,"",
+    "Private & Confidential",
+    c.name,"",
+    "OFFER OF EMPLOYMENT — "+String(c.role||"").toUpperCase(),"",
+    "Dear "+c.name+",","",
+    "We are pleased to offer you employment on the following terms:","",
+    "1. Position: "+c.role+", reporting as assigned by the Company.",
+    "2. Commencement date: "+fmtDateInput(o.start)+".",
+    "3. Monthly basic salary: "+fmtSGD(o.salary)+", payable monthly. CPF contributions per statutory rates where applicable.",
+    "4. Probation: "+o.probation+" months from commencement; notice during probation is 1 week, thereafter 1 month.",
+    "5. Hours & leave: per the Employment Act and the Company handbook.",
+    "6. This offer is conditional on your holding, or being granted, valid work authorisation for Singapore where applicable.","",
+    "Please confirm your acceptance by signing below and returning a copy of this letter.","",
+    "Yours faithfully,","","","______________________________","HR Department","","",
+    "ACCEPTANCE","",
+    "I accept the offer of employment on the terms set out above.","","",
+    "Signature: ______________________________        Date: ______________","",
+    "Name: "+c.name
+  ];
+}
+function wrap90(s){ const out=[]; let line=""; String(s).split(/\s+/).forEach(w=>{ if((line+" "+w).trim().length>90){ out.push(line); line=w; } else line=line?line+" "+w:w; }); out.push(line); return out; }
+function linesToPdf(lines){
+  const sanitize=s=>String(s).replace(/[—–]/g,"-").replace(/[’‘]/g,"'").replace(/[“”]/g,'"').replace(/≥/g,">=").replace(/·/g,"-").replace(/[^\x20-\xFE]/g,"?");
+  const esc=s=>s.replace(/\\/g,"\\\\").replace(/\(/g,"\\(").replace(/\)/g,"\\)");
+  const flat=[]; lines.forEach(l=>wrap90(sanitize(l)).forEach(x=>flat.push(x)));
+  const perPage=46, pages=[];
+  for(let i=0;i<flat.length;i+=perPage) pages.push(flat.slice(i,i+perPage));
+  const n=pages.length, fontObj=3+2*n;
+  const objs=[]; /* 1:catalog 2:pages, then per page: page(3+2i) + content(4+2i), font last */
+  objs.push("<</Type /Catalog /Pages 2 0 R>>");
+  objs.push("<</Type /Pages /Kids ["+pages.map((p,i)=>(3+2*i)+" 0 R").join(" ")+"] /Count "+n+">>");
+  pages.forEach((p,i)=>{
+    const content="BT /F1 10 Tf 14 TL 56 792 Td\n"+p.map(l=>"("+esc(l)+") Tj T*").join("\n")+"\nET";
+    objs.push(`<</Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents ${4+2*i} 0 R /Resources <</Font <</F1 ${fontObj} 0 R>>>>>>`);
+    objs.push(`<</Length ${content.length}>>\nstream\n${content}\nendstream`);
+  });
+  objs.push("<</Type /Font /Subtype /Type1 /BaseFont /Helvetica>>");
+  let out="%PDF-1.4\n"; const offs=[];
+  objs.forEach((o,i)=>{ offs.push(out.length); out+=(i+1)+" 0 obj\n"+o+"\nendobj\n"; });
+  const xref=out.length;
+  out+="xref\n0 "+(objs.length+1)+"\n0000000000 65535 f \n"+offs.map(x=>String(x).padStart(10,"0")+" 00000 n \n").join("");
+  out+="trailer\n<</Size "+(objs.length+1)+" /Root 1 0 R>>\nstartxref\n"+xref+"\n%%EOF";
+  const bytes=new Uint8Array(out.length);
+  for(let i=0;i<out.length;i++) bytes[i]=out.charCodeAt(i)&0xff;
+  return bytes;
+}
+function offerLetterPdf(c,o){
+  const clean=String(c.name||"candidate").replace(/[^A-Za-z0-9 ]/g,"").replace(/\s+/g,"_").slice(0,40);
+  return { name:"EmploymentLetter_"+clean+".pdf", bytes:linesToPdf(offerLetterLines(c,o)) };
+}
+function bytesToB64(bytes){ let s=""; const CH=32768; for(let i=0;i<bytes.length;i+=CH) s+=String.fromCharCode.apply(null,bytes.subarray(i,Math.min(i+CH,bytes.length))); return btoa(s); }
 function offerLetterHTML(c,o){
   return `<div style="font-size:12.5px;line-height:1.7;background:#fff;border:1px solid var(--line);border-radius:8px;padding:20px 22px;max-height:300px;overflow:auto">
-    <div style="text-align:center;font-weight:700;letter-spacing:.04em">[ COMPANY LETTERHEAD ]</div>
+    <div style="text-align:center;font-weight:700;letter-spacing:.04em">TIONG SENG CONTRACTORS (PTE) LTD<br><span style="font-weight:400;font-size:11px">30A Kallang Pl, #04-01 to #04-11, Singapore 339213</span></div>
     <p style="margin:12px 0 4px">${TODAY}</p>
     <p style="margin:0 0 10px"><b>Private &amp; Confidential</b><br>${escHtml(c.name)}</p>
     <p style="margin:0 0 10px"><b>OFFER OF EMPLOYMENT — ${escHtml(c.role).toUpperCase()}</b></p>
@@ -1393,9 +1444,40 @@ function offerModal(c){
       c.offerSent=true; c.offer=o2;
       candLog(c,`Offer sent — ${fmtSGD(o2.salary)}/mo, start ${fmtDateInput(o2.start)}, probation ${o2.probation} mths`);
       m.close();
-      showEmail(c.name+" <"+(c.email||"candidate@email")+">", "Offer of Employment — "+c.role, ["Dear "+c.name+",",`We are pleased to offer you the position of <b>${escHtml(c.role)}</b> commencing <b>${fmtDateInput(o2.start)}</b>. Your formal Employment Letter is attached for your review.`,"Please sign and return the Employment Letter to confirm your acceptance.","Regards, HR Department"],c,a=>{ c.email=a; candLog(c,`Candidate email address recorded: ${a}`); saveAppState(); });
+      showEmail(c.name+" <"+(c.email||"candidate@email")+">", "Offer of Employment — "+c.role, ["Dear "+c.name+",",`We are pleased to offer you the position of <b>${escHtml(c.role)}</b> commencing <b>${fmtDateInput(o2.start)}</b>. Your formal Employment Letter is attached for your review.`,"Please sign and return the Employment Letter to confirm your acceptance.","Regards, HR Department"],c,a=>{ c.email=a; candLog(c,`Candidate email address recorded: ${a}`); saveAppState(); },offerLetterPdf(c,o2));
       candMoveNext(c);
     };
+  };
+}
+/* ---- Record the signed Employment Letter (files the signed copy to SharePoint) ---- */
+function signModal(c){
+  const today=new Date().toISOString().slice(0,10);
+  const canSp=spConfigured()&&typeof msal!=="undefined";
+  const m=openModal(`
+    <div style="background:var(--ink);color:#eaf1f8;padding:13px 18px;display:flex;align-items:center;gap:8px"><span>📝</span><b>Record signed Employment Letter — ${escHtml(c.name)}</b></div>
+    <div style="padding:18px 20px">
+      <p style="margin:0 0 12px;font-size:12.5px;color:var(--slate-2)">Attach the signed copy the candidate returned${canSp?" — it is filed to the company SharePoint folder and linked to this record":""}. You can also record first and add the file later.</p>
+      <div class="field"><label>Signed copy (PDF / scan)</label><input id="sgFile" type="file" accept=".pdf,.jpg,.jpeg,.png,.docx"></div>
+      <div class="field"><label>Date signed</label><input id="sgDate" type="date" value="${today}"></div>
+      <div id="sgErr" class="note" style="color:var(--crit);display:none"></div>
+    </div>
+    <div style="padding:14px 20px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--line-2)"><button class="btn ghost" data-close>Cancel</button><button class="btn ok" id="sgSave">📝 Record signed letter</button></div>`,520);
+  m.ov.querySelector("#sgSave").onclick=()=>{
+    const iso=m.ov.querySelector("#sgDate").value;
+    const fEl=m.ov.querySelector("#sgFile"), f=fEl.files&&fEl.files[0];
+    c.done=true; c.letterRecorded=iso?fmtDateInput(iso):TODAY;
+    candLog(c,"Signed Employment Letter recorded ("+c.letterRecorded+") — HIRED");
+    docHistory.push({id:++docSeq,tpl:"employment",tplLabel:"Employment Letter",empId:c.id,empName:c.name,when:c.letterRecorded,status:"Signed",source:"Recruitment"});
+    if(f&&canSp){
+      const d=new Date(), ymd=iso?iso.replace(/-/g,""):(d.getFullYear()+String(d.getMonth()+1).padStart(2,"0")+String(d.getDate()).padStart(2,"0"));
+      const clean=String(c.name).replace(/[#%*:<>?/\\|{}"~&]/g,"").replace(/\s+/g," ").trim();
+      const ext=(f.name.match(/\.[A-Za-z0-9]+$/)||[".pdf"])[0];
+      c.signedStatus="uploading";
+      spUpload(f,c,`${ymd}_SignedEmploymentLetter_${clean}${ext}`)
+        .then(j=>{ c.signedStatus="done"; c.signedUrl=j.webUrl; candLog(c,"Signed letter filed to SharePoint"); saveAppState(); if(view==="recruitment") renderRecruitment(); })
+        .catch(err=>{ c.signedStatus="failed"; candLog(c,"Signed-letter filing failed — "+String(err.message||err).slice(0,80)); saveAppState(); });
+    }
+    saveAppState(); m.close(); renderRecruitment();
   };
 }
 /* ---- Candidate profile & audit trail ---- */
@@ -1421,6 +1503,7 @@ function candDetailModal(c){
       ${row("CV file",c.cv?escHtml(c.cv)+(c.spUrl?` · <a href="${escHtml(c.spUrl)}" target="_blank" rel="noopener" style="color:var(--steel)">📁 SharePoint</a>`:""):"")}
       ${c.interview?row("Interview",`${fmtDateInput(c.interview.date)}, ${escHtml(c.interview.time)} · ${escHtml(c.interview.mode)} · ${escHtml(c.interview.loc)}${c.interview.interviewer?" · with "+escHtml(c.interview.interviewer):""}`):""}
       ${c.offer?row("Offer",`${fmtSGD(c.offer.salary)}/mo · start ${fmtDateInput(c.offer.start)} · probation ${c.offer.probation} mths <button class="btn ghost" id="cdLetter" style="padding:2px 9px;font-size:11px;margin-left:6px">View letter</button>`):""}
+      ${c.done?row("Signed letter",`${escHtml(c.letterRecorded||"")}${c.signedUrl?` · <a href="${escHtml(c.signedUrl)}" target="_blank" rel="noopener" style="color:var(--steel)">📁 signed copy</a>`:(c.signedStatus==="failed"?` · <span style="color:var(--crit)">filing failed</span>`:"")}`):""}
       <div style="font-family:var(--mono);font-size:11px;color:var(--slate-2);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 4px">Activity log · ${(c.history||[]).length} entries · retained for decision defensibility</div>
       <div style="max-height:220px;overflow:auto">${hist}</div>
     </div>
@@ -1440,18 +1523,20 @@ function hirerButtonsHTML(c){
   };
   return `<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:4px 0"><tr>${mk("✓ Interested","INTERESTED","#178254")}<td style="width:14px">&nbsp;</td>${mk("✗ Pass","PASS","#8a94a6")}</tr></table>`;
 }
-async function graphSendMail(addr,subject,html){
+async function graphSendMail(addr,subject,html,attach){
   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(addr)) throw new Error("No valid email address for this recipient ("+addr+") — add one to the record first.");
   const t=await spTokenFor(["Mail.Send"],true);
+  const message={ subject, toRecipients:[{emailAddress:{address:addr}}], body:{contentType:"HTML",content:html} };
+  if(attach) message.attachments=[{"@odata.type":"#microsoft.graph.fileAttachment",name:attach.name,contentType:"application/pdf",contentBytes:bytesToB64(attach.bytes)}];
   const r=await fetch("https://graph.microsoft.com/v1.0/me/sendMail",{ method:"POST",
     headers:{ Authorization:"Bearer "+t, "content-type":"application/json" },
-    body:JSON.stringify({ message:{ subject, toRecipients:[{emailAddress:{address:addr}}], body:{contentType:"HTML",content:html} }, saveToSentItems:true }) });
+    body:JSON.stringify({ message, saveToSentItems:true }) });
   if(!r.ok) throw new Error("Send failed (HTTP "+r.status+"): "+(await r.text()).slice(0,140));
 }
 /* Review-and-send: nothing goes out without the HR user pressing Send (human-in-the-loop).
    Real sending uses the same M365 sign-in as SharePoint (Graph Mail.Send, from the user's
    own mailbox); "Open in mail app" pre-fills the default mail client as a fallback. */
-function showEmail(to,subject,lines,cand,saveAddr){
+function showEmail(to,subject,lines,cand,saveAddr,attach){
   const addr0=emailAddrOf(to);
   const validRx=/^[^@\s]+@[^@\s]+\.[^@\s]+$/;
   const nameOnly=String(to).replace(/<[^>]*>/,"").trim();
@@ -1467,7 +1552,8 @@ function showEmail(to,subject,lines,cand,saveAddr){
         <input id="emTo" value="${validRx.test(addr0)?escHtml(addr0):""}" placeholder="type email address…" style="flex:1;min-width:200px;font-family:var(--mono);font-size:12px;padding:5px 9px;border:1px solid ${validRx.test(addr0)?"var(--line)":"var(--warn)"};border-radius:7px" aria-label="Recipient email address">
       </div>
       ${validRx.test(addr0)?"":`<div style="font-size:11px;color:var(--warn);margin-top:4px">No email address on record — type it here; it will be saved to the record when you send.</div>`}
-      <div style="font-size:12px;color:var(--slate-2);margin:8px 0 14px;padding-bottom:12px;border-bottom:1px solid var(--line-2)"><b>Subject:</b> ${escHtml(subject)}</div>
+      <div style="font-size:12px;color:var(--slate-2);margin:8px 0 ${attach?"6":"14"}px;${attach?"":"padding-bottom:12px;border-bottom:1px solid var(--line-2)"}"><b>Subject:</b> ${escHtml(subject)}</div>
+      ${attach?`<div style="font-size:12px;color:var(--slate-2);margin:0 0 14px;padding-bottom:12px;border-bottom:1px solid var(--line-2)">📎 <a id="emAttDl" style="color:var(--steel);cursor:pointer;text-decoration:underline">${escHtml(attach.name)}</a> <span style="color:var(--slate-3)">(generated PDF — click to download &amp; check)</span></div>`:""}
       <div style="font-size:13.5px;line-height:1.65">${htmlBody}</div>
       <div id="emStatus" class="note" style="display:none;margin-top:12px;font-style:normal"></div>
     </div>
@@ -1490,8 +1576,8 @@ function showEmail(to,subject,lines,cand,saveAddr){
     const a=getAddr(); if(!a) return;
     send.disabled=true; send.textContent="Sending…";
     try{
-      await graphSendMail(a,subject,htmlBody);
-      status("✓ Sent from your mailbox to "+a+" (saved to your Sent Items).");
+      await graphSendMail(a,subject,htmlBody,attach);
+      status("✓ Sent from your mailbox to "+a+(attach?" with "+attach.name+" attached":"")+" (saved to your Sent Items).");
       ov.querySelector("#emBadge").textContent="sent";
       send.remove(); const mt=ov.querySelector("#emMailto"); if(mt) mt.remove();
       ov.querySelector("#emTo").disabled=true;
@@ -1502,7 +1588,13 @@ function showEmail(to,subject,lines,cand,saveAddr){
     const a=getAddr(); if(!a) return;
     location.href="mailto:"+encodeURIComponent(a)+"?subject="+encodeURIComponent(subject)+"&body="+encodeURIComponent(textBody);
     if(cand){ candLog(cand,`Email opened in mail app — "${subject}" to ${a}`); saveAppState(); }
-    status("Opened in your mail app — review and send it from there.");
+    status(attach?"Opened in your mail app — mail links can't carry attachments, so download the PDF above and attach it before sending.":"Opened in your mail app — review and send it from there.");
+  };
+  const dl=ov.querySelector("#emAttDl");
+  if(dl) dl.onclick=()=>{
+    const u=URL.createObjectURL(new Blob([attach.bytes],{type:"application/pdf"}));
+    const a2=document.createElement("a"); a2.href=u; a2.download=attach.name; a2.click();
+    setTimeout(()=>URL.revokeObjectURL(u),4000);
   };
   ov.querySelector("#emClose").onclick=()=>ov.remove();
   ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
@@ -2745,11 +2837,11 @@ function spCvFilename(file,rec){
   const ext=(file.name.match(/\.[A-Za-z0-9]{1,6}$/)||[".pdf"])[0];
   return [ymd,clean(rec&&rec.role)||"Role",clean(rec&&rec.name)||"Candidate",exp].join("_").slice(0,180)+ext;
 }
-async function spUpload(file,rec){
+async function spUpload(file,rec,customName){
   if(file.size>4*1024*1024) throw new Error("File exceeds the 4 MB interim upload limit.");
   const t=await spToken(false);
   const d=await spResolveFolder(false);
-  const safe=spCvFilename(file,rec);
+  const safe=customName||spCvFilename(file,rec);
   const url="https://graph.microsoft.com/v1.0/drives/"+d.driveId+"/items/"+d.itemId+":/"+encodeURIComponent(safe)+":/content?@microsoft.graph.conflictBehavior=rename";
   const r=await fetch(url,{ method:"PUT", headers:{ Authorization:"Bearer "+t, "Content-Type":file.type||"application/octet-stream" }, body:file });
   if(!r.ok) throw new Error("Upload failed (HTTP "+r.status+")");
