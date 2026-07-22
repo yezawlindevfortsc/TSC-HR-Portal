@@ -401,10 +401,10 @@ const OT = [
   {id:"W-2310", name:"S. Hossain", site:"Site A", hrs:64.0, cap:72, status:"ok"},
   {id:"W-1888", name:"A. Kumar", site:"Site C", hrs:58.5, cap:72, status:"ok"},
 ];
-const FCF = [
-  {role:"Site Engineer", pass:"EP", posted:"15 Jun 2026", days:12, ok:false},
-  {role:"Project Coordinator", pass:"S Pass", posted:"09 Jun 2026", days:18, ok:true},
-  {role:"QS Executive", pass:"EP", posted:"02 Jun 2026", days:25, ok:true},
+let FCF = [ /* seeded demo rows (static day counts); rows recorded via the FCF tracker carry postedIso and compute live */
+  {role:"Site Engineer", pass:"EP", posted:"15 Jun 2026", days:12},
+  {role:"Project Coordinator", pass:"S Pass", posted:"09 Jun 2026", days:18},
+  {role:"QS Executive", pass:"EP", posted:"02 Jun 2026", days:25},
 ];
 const EMPLOYEES = [
   {id:"S-104", name:"Tan Wei Ming", role:"Site Supervisor", bond:"$8,000", bondMonths:"24 months", incr:"4.5%", dept:"Operations"},
@@ -617,9 +617,16 @@ function renderCompBody(){
     )+`<p class="note">Weekly OT exception report shared with EHS for fatigue monitoring. Calculations audited against HRIQ config.</p>`);
   } else if(compTab==="fcf"){
     body.innerHTML=card(`Fair Consideration Framework`, `14-day advertising rule`, tbl(
-      ["Role","Pass type","Posted","Days elapsed","Offers allowed?"],
-      FCF.map(f=>[f.role,f.pass,f.posted,`<span class="num">${f.days} / 14</span>`, f.ok?`<span class="pill ok">Yes</span>`:`<span class="pill crit">Blocked · ${14-f.days}d left</span>`])
-    )+`<p class="note">The portal blocks offer-letter generation for roles still inside the mandatory window.</p>`);
+      ["Role","Pass type","Posted","Days elapsed","Offers allowed?",""],
+      FCF.map(f=>[f.role,f.pass||"—",
+        f.exempt?`<span class="pill info">Exempt</span> ${escHtml(f.exemptReason||"")}`:(f.postedIso?fmtDateInput(f.postedIso):(f.posted||"—"))+(f.url?` · <a href="${escHtml(f.url)}" target="_blank" rel="noopener" style="color:var(--steel)">post ↗</a>`:""),
+        f.exempt?"—":`<span class="num">${fcfDays(f)} / 14</span>`,
+        fcfServed(f)?`<span class="pill ok">Yes</span>`:`<span class="pill crit">Blocked · ${Math.max(0,14-fcfDays(f))}d left</span>`,
+        `<button class="btn ghost" data-fcfedit="${escHtml(f.role)}" style="padding:3px 10px;font-size:11px">✎ Update</button>`])
+    )+`<div style="margin-top:10px"><button class="btn" id="fcfAddBtn" style="padding:7px 14px;font-size:12.5px">＋ Record advertisement</button></div>
+    <p class="note" style="margin-top:10px">Record the MyCareersFuture posting per role (date + job-post URL as audit evidence) — day counting, offer blocking and release are automatic. Rows without a recorded date are seeded demo data.</p>`);
+    body.querySelectorAll("[data-fcfedit]").forEach(b=>b.onclick=()=>fcfModal(b.dataset.fcfedit,()=>renderCompBody()));
+    const fa=body.querySelector("#fcfAddBtn"); if(fa) fa.onclick=()=>fcfModal(null,()=>renderCompBody());
   } else if(compTab==="ret"){
     body.innerHTML=`<div class="grid g-2">
       ${card(`Licence conditions`, `BCA A1`, tbl(["Condition","Status"],[
@@ -972,8 +979,63 @@ function drawChat(){
 
 /* ---------- RECRUITMENT ---------- */
 const STAGES=[["screening","CV Screening"],["hirer","With Hirer"],["interview","Interview"],["offer","Offer"],["hired","Hired"]];
-// FCF gate — offers are blocked while an EP/S Pass role is inside its mandatory advertising window (same data as the Compliance Monitor)
-function fcfBlock(roleName){ const f=FCF.find(x=>x.role===roleName); return (f&&!f.ok)?f:null; }
+/* FCF gate — offers are blocked while an EP/S Pass role is inside its mandatory
+   advertising window (same data as the Compliance Monitor). The advertisement is
+   RECORDED by HR (posting date + MyCareersFuture URL as evidence — MCF has no
+   employer API); day counting, holds and release are deterministic code. */
+function fcfDays(f){
+  if(f.postedIso){ const p=f.postedIso.split("-"); const d0=new Date(+p[0],+p[1]-1,+p[2]); return Math.max(0,Math.floor((Date.now()-d0.getTime())/86400000)); }
+  return f.days||0; /* legacy demo rows */
+}
+function fcfServed(f){ return !!f.exempt||fcfDays(f)>=14; }
+function fcfBlock(roleName){ const f=FCF.find(x=>x.role===roleName); return (f&&!fcfServed(f))?f:null; }
+function fcfSweep(){ /* release candidates held at an FCF Gate whose window is now served */
+  let moved=false;
+  CANDIDATES.forEach(c=>{
+    if(c.stage==="rejected"||c.done) return;
+    const n=c.nodeId&&pubNodeById(c.nodeId);
+    if(n&&n.type==="fcf"&&!fcfBlock(c.role)){
+      const f=FCF.find(x=>x.role===c.role);
+      candLog(c,f&&f.exempt?`FCF exemption recorded (${f.exemptReason||"ground on file"}) — hold released`:`FCF 14-day window served${f?` (${fcfDays(f)} days since posting)`:""} — hold released`);
+      engineAdvance(c); moved=true;
+    }
+  });
+  if(moved) saveAppState();
+  return moved;
+}
+function fcfModal(roleName,after){
+  const ex=FCF.find(x=>x.role===roleName)||{};
+  const roles=[...new Set(CANDIDATES.filter(c=>c.stage!=="rejected"&&!c.done).map(c=>c.role).concat(FCF.map(f=>f.role)))].filter(Boolean);
+  const m=openModal(`
+    <div style="background:var(--ink);color:#eaf1f8;padding:13px 18px;display:flex;align-items:center;gap:8px"><span>📣</span><b>FCF advertisement — ${roleName?escHtml(roleName):"record for a role"}</b></div>
+    <div style="padding:18px 20px;overflow:auto">
+      <p style="margin:0 0 12px;font-size:12.5px;color:var(--slate-2)">MyCareersFuture has no employer API, so HR records the posting here — the system then counts the days, blocks offers for this role until <b>14 full days</b> are served, and releases the hold automatically. The job-post URL is kept as audit evidence.</p>
+      <div class="field"><label>Role *</label>${roleName?`<input id="fcRole" value="${escHtml(roleName)}" disabled>`:`<input id="fcRole" list="fcRoles" placeholder="e.g. M&amp;E Coordinator"><datalist id="fcRoles">${roles.map(r=>`<option>${escHtml(r)}</option>`).join("")}</datalist>`}</div>
+      <div style="display:flex;gap:10px"><div class="field" style="flex:1"><label>Pass type</label><select id="fcPass"><option ${ex.pass==="EP"?"selected":""}>EP</option><option ${ex.pass==="S Pass"?"selected":""}>S Pass</option></select></div>
+      <div class="field" style="flex:1"><label>Posted on MyCareersFuture *</label><input id="fcDate" type="date" value="${escHtml(ex.postedIso||"")}"></div></div>
+      <div class="field"><label>Job-post URL (audit evidence)</label><input id="fcUrl" value="${escHtml(ex.url||"")}" placeholder="https://www.mycareersfuture.gov.sg/job/…"></div>
+      <label style="display:flex;gap:8px;align-items:flex-start;font-size:12.5px;color:var(--ink-2)"><input type="checkbox" id="fcExempt" ${ex.exempt?"checked":""} style="margin-top:3px"> <span>Role is <b>exempt</b> from FCF advertising (e.g. fixed monthly salary ≥ S$22,500) — record the ground below.</span></label>
+      <div class="field" style="margin-top:8px"><label>Exemption ground</label><input id="fcReason" value="${escHtml(ex.exemptReason||"")}" placeholder="required only if exempt"></div>
+      <div id="fcErr" class="note" style="color:var(--crit);display:none"></div>
+    </div>
+    <div style="padding:14px 20px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--line-2)"><button class="btn ghost" data-close>Cancel</button><button class="btn" id="fcSave">Save &amp; apply</button></div>`,560);
+  m.ov.querySelector("#fcSave").onclick=()=>{
+    const g=s=>{const el=m.ov.querySelector(s);return el?el.value.trim():"";};
+    const err=(t)=>{const e2=m.ov.querySelector("#fcErr");e2.textContent=t;e2.style.display="block";};
+    const role=roleName||g("#fcRole"); if(!role) return err("A role is required.");
+    const exempt=m.ov.querySelector("#fcExempt").checked, reason=g("#fcReason"), iso=g("#fcDate"), url=g("#fcUrl");
+    if(exempt&&!reason) return err("Record the ground for the exemption — it is the audit evidence.");
+    if(!exempt){
+      if(!iso) return err("The MyCareersFuture posting date is required.");
+      const p=iso.split("-"); if(new Date(+p[0],+p[1]-1,+p[2])>new Date()) return err("The posting date cannot be in the future.");
+    }
+    let f=FCF.find(x=>x.role===role); if(!f){ f={role}; FCF.push(f); }
+    Object.assign(f,{pass:g("#fcPass"),postedIso:exempt?(f.postedIso||""):iso,posted:iso?fmtDateInput(iso):(f.posted||"—"),url,exempt,exemptReason:exempt?reason:""});
+    delete f.ok; if(f.postedIso) delete f.days;
+    m.close(); fcfSweep(); saveAppState();
+    if(after) after();
+  };
+}
 function renderRecruitment(){
   let h=`<div class="page-head"><h1>👥 Recruitment</h1><p>From CV screening to signed Employment Letter. Build your own agentic workflow in the designer — guardrails stay enforced.</p></div>`;
   h+=`<div class="tabs" style="margin-bottom:14px"><button class="tab ${recruitTab==='candidates'?'active':''}" data-rt="candidates">Candidates &amp; Pipeline</button><button class="tab ${recruitTab==='designer'?'active':''}" data-rt="designer">⚙ Workflow Designer</button><button class="tab ${recruitTab==='stats'?'active':''}" data-rt="stats">📊 Statistics</button></div>`;
@@ -1130,11 +1192,11 @@ function candCard(c,rank){
   else if(t==="invite") action=`<button class="btn" data-act="invite" data-id="${c.id}" style="${bs}">✉ Send interview invite</button>`;
   else if(t==="fcf"){
     const fb=fcfBlock(c.role);
-    action=`<div class="pill crit" style="width:100%;justify-content:center" title="Fair Consideration Framework — held until the advertising window is served">⛔ Held — FCF window${fb?` · ${14-fb.days}d left`:""}</div><button class="btn ghost" data-act="fcfRelease" data-id="${c.id}" style="${bs};margin-top:6px;font-size:11px;padding:5px">(demo) mark window served</button>`;
+    action=`<div class="pill crit" style="width:100%;justify-content:center" title="Fair Consideration Framework — held until the advertising window is served">⛔ Held — FCF window${fb?` · ${Math.max(0,14-fcfDays(fb))}d left`:""}</div><button class="btn ghost" data-act="fcfAd" data-id="${c.id}" style="${bs};margin-top:6px;font-size:11px;padding:5px" title="Record the MyCareersFuture posting date — the hold releases automatically once 14 days are served">📣 Record advertisement…</button>`;
   }
   else if(t==="offer"){
     const fb=fcfBlock(c.role);
-    if(fb) action=`<div class="pill crit" style="width:100%;justify-content:center" title="No offers during the mandatory advertising window">⛔ FCF window open · ${14-fb.days}d left — offer blocked</div>`;
+    if(fb) action=`<div class="pill crit" style="width:100%;justify-content:center" title="No offers during the mandatory advertising window">⛔ FCF window open · ${Math.max(0,14-fcfDays(fb))}d left — offer blocked</div>`;
     else action=`<button class="btn" data-act="offer" data-id="${c.id}" style="${bs}">✉ Send offer email</button>`;
   }
   else if(t==="record") action=`<button class="btn ok" data-act="sign" data-id="${c.id}" style="${bs};margin-bottom:6px">📝 Record signed letter</button><button class="btn ghost" data-act="declined" data-id="${c.id}" style="${bs}">Offer declined</button>`;
@@ -1218,11 +1280,7 @@ function nodeAction(act,id){
     docHistory.push({id:++docSeq,tpl:"employment",tplLabel:"Employment Letter",empId:c.id,empName:c.name,when:TODAY,status:"Signed",source:"Recruitment"});
     saveAppState(); renderRecruitment(); return;
   }
-  if(act==="fcfRelease"){
-    const f=FCF.find(x=>x.role===c.role); if(f){ f.ok=true; f.days=Math.max(f.days,14); }
-    candLog(c,"FCF advertising window marked served (demo) — hold released");
-    engineAdvance(c); saveAppState(); renderRecruitment(); return;
-  }
+  if(act==="fcfAd"){ fcfModal(c.role,()=>renderRecruitment()); return; }
   if(act==="advance"){ if(!c.nodeId||!pubNodeById(c.nodeId)){ engineEnter(c); saveAppState(); renderRecruitment(); } else candMoveNext(c); return; }
   if(act==="restore"){
     /* human override of a rejection — placed at the first pipeline stage, past any
@@ -2452,7 +2510,7 @@ function saveAppState(){
   try{
     localStorage.setItem(APP_LS,JSON.stringify({
       candidates:CANDIDATES, hirers:HIRERS, docHistory, docSeq,
-      fcfOk:FCF.filter(f=>f.ok).map(f=>f.role)
+      fcf:FCF
     }));
   }catch(e){}
 }
@@ -2464,10 +2522,12 @@ function saveAppState(){
       if(Array.isArray(o.candidates)&&o.candidates.length) CANDIDATES=o.candidates;
       if(Array.isArray(o.hirers)) HIRERS=o.hirers;
       if(Array.isArray(o.docHistory)){ docHistory=o.docHistory; docSeq=o.docSeq||docHistory.length; }
-      if(Array.isArray(o.fcfOk)) FCF.forEach(f=>{ if(o.fcfOk.includes(f.role)){ f.ok=true; f.days=Math.max(f.days,14); } });
+      if(Array.isArray(o.fcf)&&o.fcf.length) FCF=o.fcf;
+      else if(Array.isArray(o.fcfOk)) FCF.forEach(f=>{ if(o.fcfOk.includes(f.role)){ f.days=Math.max(f.days||0,14); } }); /* legacy saves */
     }
   }catch(e){}
   try{ migrateCandidates(null); }catch(e){} /* place everyone in the published workflow on boot */
+  try{ fcfSweep(); }catch(e){} /* time has passed — release any served FCF holds */
 })();
 
 /* ---------- AI CV UNDERSTANDING (provider-agnostic LLM layer) ----------
