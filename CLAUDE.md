@@ -82,6 +82,12 @@ repo's HTML documents — start at `index.html` (the hub).
   demo tier only — the real backend (FastAPI + PostgreSQL + jobs) won't run there.
 - Stack for the real build: **Python/FastAPI + PostgreSQL + React**,
   managed services only (solo operator).
+- **Employment Letters: sign-and-return, NO e-signature provider**
+  (user decision, Jul 2026 — do not re-propose DocuSign/Adobe Sign).
+  The portal generates the letter as a deterministic PDF attached to
+  the offer email (acceptance block included); the returned signed
+  copy is filed to SharePoint as `YYYYMMDD_SignedEmploymentLetter_…`
+  and linked on the candidate record.
 
 ## Pending / waiting on
 
